@@ -1,0 +1,11 @@
+mam.db.host=
+mam.db.port=
+mam.db.username=
+mam.db.password=
+mam.db.database=
+
+ams.db.host=
+ams.db.port=
+ams.db.username=
+ams.db.password=
+ams.db.database=
