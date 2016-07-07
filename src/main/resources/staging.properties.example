@@ -3,6 +3,8 @@ mam.db.port=
 mam.db.username=
 mam.db.password=
 mam.db.database=
+mam.db.datatable.pids=
+mam.db.datatable.events=
 
 ams.db.host=
 ams.db.port=
