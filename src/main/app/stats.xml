@@ -65,7 +65,8 @@ count(case when status = 'NOK' then 1 end) archived_amount_nok,
 sum(case when status = 'NOK' and carrier_size is not null then carrier_size else 0 end) archived_bytes_nok
 FROM ${mam.db.datatable.pids}
 WHERE status IN ('OK', 'NOK') #[flowVars.where_clausule_mam_content_provider]
-GROUP BY case when mime_type LIKE '%video%' then 'video' else mime_type end]]></db:dynamic-query>
+GROUP BY case when mime_type LIKE '%video%' then 'video' else mime_type end
+ORDER BY archived_amount_ok desc]]></db:dynamic-query>
         </db:select>
                 <flow-ref name="CalcAndAddMAMTotal" doc:name="CalcAndAddMAMTotal"/>
                 
@@ -197,9 +198,16 @@ where event_lookup_id = 5 and carrier_id IN (
     <flow name="MAMitems">
         <http:listener config-ref="HTTP_Listener_Configuration" path="/api/report/mam/items" allowedMethods="GET" doc:name="/api/report/mam/items?cp={c}&amp;gran={g}
 "/>
-        <set-variable variableName="cp" value="#[message.inboundProperties.'http.query.params'.org]" doc:name="Set cp"/>
-        <set-variable variableName="cp" value="#['VRT']" doc:name="Set cp to VRT default"/>
-        <logger level="INFO" doc:name="TODO: translate LDAP org ID to cp_name MAM"/>
+        <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.org]" doc:name="Set cp_ldap (LDAP ID) (default: OR-rf5kf25 = VRT)"/>
+        <choice doc:name="cp_ldap is empty?">
+            <when expression="#[flowVars.cp_ldap!=null]">
+                <logger level="INFO" doc:name="TODO: fetch content_provider MAM from LDAP ID"/>
+                <set-variable variableName="cp_mam" value="#['VRT']" doc:name="Set cp_mam (default VRT)"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="cp_mam" value="#['%']" doc:name="Set cp_mam (default %)"/>
+            </otherwise>
+        </choice>
         <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'last-day':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
         <set-variable variableName="end" value="#[server.dateTime.getDate().toString()]" doc:name="Set end (now())"/>
         <set-variable variableName="endDateTime" value="#[server.dateTime.getDate()]" doc:name="Set endDateTime"/>
@@ -211,12 +219,10 @@ where event_lookup_id = 5 and carrier_id IN (
                 <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items">
                     <db:parameterized-query><![CDATA[SELECT distinct m.month x, case when (count(1) OVER (PARTITION BY m.month)) = 1 then 0 else count(1) OVER (PARTITION BY m.month) end y
 FROM  (SELECT generate_series(date_trunc('month', min(date))
-                            , max(date), '1 month') AS month FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]
-																	and content_provider LIKE #[flowVars.cp] 
-																	AND status = 'OK') m
+                            , max(date), '1 month') AS month FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
 LEFT   JOIN (SELECT date_trunc('month', date) AS month FROM pids
-															where date >= #[flowVars.start] AND date <= #[flowVars.end]
-															and content_provider LIKE #[flowVars.cp] 
+															where date >= #[flowVars.start] AND date <= #[flowVars.end] 
+															AND content_provider LIKE #[flowVars.cp_mam]
 															AND status = 'OK') c
                                                         USING (month)
 ORDER  BY 1;]]></db:parameterized-query>
@@ -229,12 +235,10 @@ ORDER  BY 1;]]></db:parameterized-query>
                 <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items">
                     <db:parameterized-query><![CDATA[SELECT distinct m.day x, case when (count(1) OVER (PARTITION BY m.day)) = 1 then 0 else count(1) OVER (PARTITION BY m.day) end y
 FROM  (SELECT generate_series(date_trunc('day', min(date))
-                            , max(date), '1 day') AS day FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]
-																	and content_provider LIKE #[flowVars.cp] 
-																	AND status = 'OK') m
+                            , max(date), '1 day') AS day FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
 LEFT   JOIN (SELECT date_trunc('day', date) AS day FROM pids
 															where date >= #[flowVars.start] AND date <= #[flowVars.end]
-															and content_provider LIKE #[flowVars.cp] 
+															AND content_provider LIKE #[flowVars.cp_mam] 
 															AND status = 'OK') c
                                                         USING (day)
 ORDER  BY 1;]]></db:parameterized-query>
@@ -247,12 +251,10 @@ ORDER  BY 1;]]></db:parameterized-query>
                 <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items">
                     <db:parameterized-query><![CDATA[SELECT distinct m.day x, case when (count(1) OVER (PARTITION BY m.day)) = 1 then 0 else count(1) OVER (PARTITION BY m.day) end y
 FROM  (SELECT generate_series(date_trunc('day', min(date))
-                            , max(date), '1 day') AS day FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]
-																	and content_provider LIKE #[flowVars.cp] 
-																	AND status = 'OK') m
+                            , max(date), '1 day') AS day FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
 LEFT   JOIN (SELECT date_trunc('day', date) AS day FROM pids
 															where date >= #[flowVars.start] AND date <= #[flowVars.end]
-															and content_provider LIKE #[flowVars.cp] 
+															AND content_provider LIKE #[flowVars.cp_mam]
 															AND status = 'OK') c
                                                         USING (day)
 ORDER  BY 1;]]></db:parameterized-query>
@@ -265,12 +267,10 @@ ORDER  BY 1;]]></db:parameterized-query>
                 <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items">
                     <db:parameterized-query><![CDATA[SELECT distinct m.hour x, case when (count(1) OVER (PARTITION BY m.hour)) = 1 then 0 else count(1) OVER (PARTITION BY m.hour) end y
 FROM  (SELECT generate_series(date_trunc('hour', min(date))
-                            , max(date), '1 hour') AS hour FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]
-																	and content_provider LIKE #[flowVars.cp] 
-																	AND status = 'OK') m
+                            , max(date), '1 hour') AS hour FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
 LEFT   JOIN (SELECT date_trunc('hour', date) AS hour FROM pids
 															where date >= #[flowVars.start] AND date <= #[flowVars.end]
-															and content_provider LIKE #[flowVars.cp] 
+															AND content_provider LIKE #[flowVars.cp_mam] 
 															AND status = 'OK') c
                                                         USING (hour)
 ORDER BY m.hour;]]></db:parameterized-query>
@@ -287,80 +287,79 @@ ORDER BY m.hour;]]></db:parameterized-query>
     </flow>
     <flow name="MAMbytes">
         <http:listener config-ref="HTTP_Listener_Configuration" path="/api/report/mam/bytes" allowedMethods="GET" doc:name="/api/report/mam/bytes?org={o}&amp;gran={g}"/>
-        <set-variable variableName="cp" value="#[message.inboundProperties.'http.query.params'.org]" doc:name="Set cp"/>
-        <set-variable variableName="cp" value="#['VRT']" doc:name="Set cp to VRT default"/>
-        <logger level="INFO" doc:name="TODO: translate LDAP org ID to cp_name MAM"/>
+        <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.org]" doc:name="Set cp_ldap (LDAP ID) (default: OR-rf5kf25 = VRT)"/>
+        <choice doc:name="cp_ldap is empty?">
+            <when expression="#[flowVars.cp_ldap!=null]">
+                <logger level="INFO" doc:name="TODO: fetch content_provider MAM from LDAP ID"/>
+                <set-variable variableName="cp_mam" value="#['VRT']" doc:name="Set cp_mam (default VRT)"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="cp_mam" value="#['%']" doc:name="Set cp_mam (default %)"/>
+            </otherwise>
+        </choice>
         <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'last-day':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
         <set-variable variableName="end" value="#[server.dateTime.getDate().toString()]" doc:name="Set end (now())"/>
         <set-variable variableName="endDateTime" value="#[server.dateTime.getDate()]" doc:name="Set endDateTime"/>
         <choice doc:name="Last-day, last-week, last-month or last-year?">
-            <when expression="">
+            <when expression="#[flowVars.granularity.equals('last-year')]">
                 <logger message="1 year" level="INFO" doc:name="1 year = last 12 months"/>
                 <set-variable variableName="start" value="#[server.dateTime.getDate().plusYears(-1).toString()]" doc:name="Set start (now() - 1 year)"/>
                 <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusYears(-1)]" doc:name="Set startDateTime"/>
                 <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch bytes">
-                    <db:parameterized-query><![CDATA[SELECT distinct m.month x, case when (sum(carrier_size) OVER (PARTITION BY m.month)) = 1 then 0 else sum(carrier_size) OVER (PARTITION BY m.month) end y
+                    <db:parameterized-query><![CDATA[SELECT distinct m.month x, case when (sum(carrier_size) OVER (PARTITION BY m.month)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.month) end y
 FROM  (SELECT generate_series(date_trunc('month', min(date))
-                            , max(date), '1 month') AS month FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]
-																	and content_provider LIKE #[flowVars.cp] 
-																	AND status = 'OK') m
-LEFT   JOIN (SELECT date_trunc('month', date) AS month FROM pids
+                            , max(date), '1 month') AS month FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
+LEFT   JOIN (SELECT date_trunc('month', date) AS month, carrier_size FROM pids
 															where date >= #[flowVars.start] AND date <= #[flowVars.end]
-															and content_provider LIKE #[flowVars.cp] 
+															AND content_provider LIKE #[flowVars.cp_mam] 
 															AND status = 'OK') c
                                                         USING (month)
 ORDER  BY 1;]]></db:parameterized-query>
                 </db:select>
             </when>
-            <when expression="">
+            <when expression="#[flowVars.granularity.equals('last-month')]">
                 <logger message="1 month" level="INFO" doc:name="1 month = last 30 days"/>
                 <set-variable variableName="start" value="#[server.dateTime.getDate().plusMonths(-1).toString()]" doc:name="Set start (now() - 1 month)"/>
                 <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusMonths(-1)]" doc:name="Set startDateTime"/>
                 <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch bytes">
-                    <db:parameterized-query><![CDATA[SELECT distinct m.day x, case when (sum(carrier_size) OVER (PARTITION BY m.day)) = 1 then 0 else sum(carrier_size) OVER (PARTITION BY m.day) end y
+                    <db:parameterized-query><![CDATA[SELECT distinct m.day x, case when (sum(carrier_size) OVER (PARTITION BY m.day)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.day) end y
 FROM  (SELECT generate_series(date_trunc('day', min(date))
-                            , max(date), '1 day') AS day FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]
-																	and content_provider LIKE #[flowVars.cp] 
-																	AND status = 'OK') m
-LEFT   JOIN (SELECT date_trunc('day', date) AS day FROM pids
+                            , max(date), '1 day') AS day FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
+LEFT   JOIN (SELECT date_trunc('day', date) AS day, carrier_size FROM pids
 															where date >= #[flowVars.start] AND date <= #[flowVars.end]
-															and content_provider LIKE #[flowVars.cp] 
+															AND content_provider LIKE #[flowVars.cp_mam] 
 															AND status = 'OK') c
                                                         USING (day)
 ORDER  BY 1;]]></db:parameterized-query>
                 </db:select>
             </when>
-            <when expression="">
+            <when expression="#[flowVars.granularity.equals('last-week')]">
                 <logger message="1 week" level="INFO" doc:name="1 week = last 7 days"/>
                 <set-variable variableName="start" value="#[server.dateTime.getDate().plusWeeks(-1).toString()]" doc:name="Set start (now() - 1 week)"/>
                 <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusWeeks(-1)]" doc:name="Set startDateTime"/>
                 <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch bytes">
-                    <db:parameterized-query><![CDATA[SELECT distinct m.day x, case when (sum(carrier_size) OVER (PARTITION BY m.day)) = 1 then 0 else sum(carrier_size) OVER (PARTITION BY m.day) end y
+                    <db:parameterized-query><![CDATA[SELECT distinct m.day x, case when (sum(carrier_size) OVER (PARTITION BY m.day)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.day) end y
 FROM  (SELECT generate_series(date_trunc('day', min(date))
-                            , max(date), '1 day') AS day FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]
-																	and content_provider LIKE #[flowVars.cp] 
-																	AND status = 'OK') m
-LEFT   JOIN (SELECT date_trunc('day', date) AS day FROM pids
+                            , max(date), '1 day') AS day FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
+LEFT   JOIN (SELECT date_trunc('day', date) AS day, carrier_size  FROM pids
 															where date >= #[flowVars.start] AND date <= #[flowVars.end]
-															and content_provider LIKE #[flowVars.cp] 
+															AND content_provider LIKE #[flowVars.cp_mam] 
 															AND status = 'OK') c
                                                         USING (day)
 ORDER  BY 1;]]></db:parameterized-query>
                 </db:select>
             </when>
-            <when expression="">
+            <when expression="#[flowVars.granularity.equals('last-day')]">
                 <logger message="Live data" level="INFO" doc:name="Last day = 24 hours for every 1 hour"/>
                 <set-variable variableName="start" value="#[server.dateTime.getDate().plusDays(-1).toString()]" doc:name="Set start (now() - 1 day)"/>
                 <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusDays(-1)]" doc:name="Set startDateTime"/>
                 <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch bytes">
-                    <db:parameterized-query><![CDATA[SELECT distinct m.hour x, case when (sum(carrier_size) OVER (PARTITION BY m.hour)) = 1 then 0 else sum(carrier_size) OVER (PARTITION BY m.hour) end y
+                    <db:parameterized-query><![CDATA[SELECT distinct m.hour x, case when (sum(carrier_size) OVER (PARTITION BY m.hour)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.hour) end y
 FROM  (SELECT generate_series(date_trunc('hour', min(date))
-                            , max(date), '1 hour') AS hour FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]
-																	and content_provider LIKE #[flowVars.cp] 
-																	AND status = 'OK') m
-LEFT   JOIN (SELECT date_trunc('hour', date) AS hour FROM pids
+                            , max(date), '1 hour') AS hour FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
+LEFT   JOIN (SELECT date_trunc('hour', date) AS hour, carrier_size FROM pids
 															where date >= #[flowVars.start] AND date <= #[flowVars.end]
-															and content_provider LIKE #[flowVars.cp] 
+															AND content_provider LIKE #[flowVars.cp_mam]
 															AND status = 'OK') c
                                                         USING (hour)
 ORDER BY m.hour;]]></db:parameterized-query>
@@ -376,8 +375,20 @@ ORDER BY m.hour;]]></db:parameterized-query>
     <flow name="AMSitems">
         <http:listener config-ref="HTTP_Listener_Configuration" path="/api/report/ams/items" allowedMethods="GET" doc:name="/api/report/ams/items?org={o}&amp;gran={g}
 "/>
-        <set-variable variableName="cp" value="#[message.inboundProperties.'http.query.params'.org]" doc:name="Set cp"/>
-        <set-variable variableName="cp" value="#['VRT']" doc:name="Set cp to VRT default"/>
+        <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.org]" doc:name="Set cp_ldap (LDAP ID) (default: OR-rf5kf25 = VRT)"/>
+        <choice doc:name="cp_ldap is empty?">
+            <when expression="#[flowVars.cp_ldap!=null]">
+                <logger level="INFO" doc:name="TODO: fetch content_provider MAM from LDAP ID"/>
+                <set-variable variableName="cp_mam" value="#['VRT']" doc:name="Set cp_mam (default VRT)"/>
+                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}#[' WHERE noid_id LIKE \'' + flowVars.cp_ldap + '\'']" doc:name="Set query_ams_organization_ids"/>
+                <set-variable variableName="where_clausule_mam_content_provider" value="#['AND content_provider = ' + flowVars.cp_mam]" doc:name="Set where_clausule_mam_content_provider"/>
+                <logger message="#[Retrieving global stats: flowVars.cp]" level="INFO" doc:name="Retrieving global stats for an cp"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="where_clausule_mam_content_provider" value="#['']" doc:name="Set where_clausule_mam_content_provider as empty"/>
+                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}" doc:name="Set query_ams_organization_ids to every organization"/>
+            </otherwise>
+        </choice>
         <logger level="INFO" doc:name="TODO: translate LDAP org ID to cp_name MAM"/>
         <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'last-day':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
         <set-variable variableName="end" value="#[server.dateTime.getDate().toString()]" doc:name="Set end (now())"/>
@@ -412,8 +423,20 @@ ORDER BY m.hour;]]></db:parameterized-query>
     </flow>
     <flow name="AMSbytes">
         <http:listener config-ref="HTTP_Listener_Configuration" path="/api/report/ams/bytes" allowedMethods="GET" doc:name="/api/report/ams/bytes?org={o}&amp;gran={g}"/>
-        <set-variable variableName="cp" value="#[message.inboundProperties.'http.query.params'.org]" doc:name="Set cp"/>
-        <set-variable variableName="cp" value="#['VRT']" doc:name="Set cp to VRT default"/>
+        <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.org]" doc:name="Set cp_ldap (LDAP ID) (default: OR-rf5kf25 = VRT)"/>
+        <choice doc:name="cp_ldap is empty?">
+            <when expression="#[flowVars.cp_ldap!=null]">
+                <logger level="INFO" doc:name="TODO: fetch content_provider MAM from LDAP ID"/>
+                <set-variable variableName="cp_mam" value="#['VRT']" doc:name="Set cp_mam (default VRT)"/>
+                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}#[' WHERE noid_id LIKE \'' + flowVars.cp_ldap + '\'']" doc:name="Set query_ams_organization_ids"/>
+                <set-variable variableName="where_clausule_mam_content_provider" value="#['AND content_provider = ' + flowVars.cp_mam]" doc:name="Set where_clausule_mam_content_provider"/>
+                <logger message="#[Retrieving global stats: flowVars.cp]" level="INFO" doc:name="Retrieving global stats for an cp"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="where_clausule_mam_content_provider" value="#['']" doc:name="Set where_clausule_mam_content_provider as empty"/>
+                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}" doc:name="Set query_ams_organization_ids to every organization"/>
+            </otherwise>
+        </choice>
         <logger level="INFO" doc:name="TODO: translate LDAP org ID to cp_name MAM"/>
         <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'last-day':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
         <set-variable variableName="end" value="#[server.dateTime.getDate().toString()]" doc:name="Set end (now())"/>
