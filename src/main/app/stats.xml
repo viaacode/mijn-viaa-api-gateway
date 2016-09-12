@@ -18,9 +18,9 @@ http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee
         <reconnect-forever></reconnect-forever>  
     </db:generic-config>
     <context:property-placeholder location="${mule.env}.properties"/>
-<!--     <db:mysql-config name="AMS_MySQL" host="${ams.db.host}" port="${ams.db.port}" user="${ams.db.username}" password="${ams.db.password}" database="${ams.db.database}" doc:name="MySQL Configuration"> -->
-<!--         <reconnect-forever/> -->
-<!--     </db:mysql-config> -->
+    <db:mysql-config name="AMS_MySQL2" host="${ams.db.host}" port="${ams.db.port}" user="${ams.db.username}" password="${ams.db.password}" database="${ams.db.database}" doc:name="MySQL Configuration">
+        <reconnect-forever/>
+    </db:mysql-config>
     <flow name="GlobalStats">
         <http:listener config-ref="HTTP_Listener_Configuration" path="/api/report/global" doc:name="/api/report/global?cp={c}" allowedMethods="GET"/>
         <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.org]" doc:name="Set cp_ldap (LDAP ID) (default: OR-rf5kf25 = VRT)"/>
@@ -195,8 +195,8 @@ where event_lookup_id = 5 and carrier_id IN (
                 </foreach>
                 <component class="transformers.AddTotal" doc:name="Java"/>
     </sub-flow>
-    <flow name="MAMitems">
-        <http:listener config-ref="HTTP_Listener_Configuration" path="/api/report/mam/items" allowedMethods="GET" doc:name="/api/report/mam/items?cp={c}&amp;gran={g}
+    <flow name="MAM">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/api/report/mam" allowedMethods="GET" doc:name="/api/report/mam?cp={c}&amp;gran={g}
 "/>
         <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.org]" doc:name="Set cp_ldap (LDAP ID) (default: OR-rf5kf25 = VRT)"/>
         <choice doc:name="cp_ldap is empty?">
@@ -216,11 +216,12 @@ where event_lookup_id = 5 and carrier_id IN (
                 <logger message="1 year" level="INFO" doc:name="1 year = last 12 months"/>
                 <set-variable variableName="start" value="#[server.dateTime.getDate().plusYears(-1).toString()]" doc:name="Set start (now() - 1 year)"/>
                 <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusYears(-1)]" doc:name="Set startDateTime"/>
-                <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items">
-                    <db:parameterized-query><![CDATA[SELECT distinct m.month x, case when (count(1) OVER (PARTITION BY m.month)) = 1 then 0 else count(1) OVER (PARTITION BY m.month) end y
+                <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items and bytes">
+                    <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.month) x, case when (count(1) OVER (PARTITION BY m.month)) = 1 then 0 else count(1) OVER (PARTITION BY m.month) end items,
+case when (sum(carrier_size) OVER (PARTITION BY m.month)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.month) end bytes
 FROM  (SELECT generate_series(date_trunc('month', min(date))
                             , max(date), '1 month') AS month FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
-LEFT   JOIN (SELECT date_trunc('month', date) AS month FROM pids
+LEFT   JOIN (SELECT date_trunc('month', date) AS month, carrier_size FROM pids
 															where date >= #[flowVars.start] AND date <= #[flowVars.end] 
 															AND content_provider LIKE #[flowVars.cp_mam]
 															AND status = 'OK') c
@@ -232,13 +233,14 @@ ORDER  BY 1;]]></db:parameterized-query>
                 <logger message="1 month" level="INFO" doc:name="1 month = last 30 days"/>
                 <set-variable variableName="start" value="#[server.dateTime.getDate().plusMonths(-1).toString()]" doc:name="Set start (now() - 1 month)"/>
                 <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusMonths(-1)]" doc:name="Set startDateTime"/>
-                <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items">
-                    <db:parameterized-query><![CDATA[SELECT distinct m.day x, case when (count(1) OVER (PARTITION BY m.day)) = 1 then 0 else count(1) OVER (PARTITION BY m.day) end y
+                <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items and bytes">
+                    <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.day) x, case when (count(1) OVER (PARTITION BY m.day)) = 1 then 0 else count(1) OVER (PARTITION BY m.day) end items,
+case when (sum(carrier_size) OVER (PARTITION BY m.day)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.day) end bytes
 FROM  (SELECT generate_series(date_trunc('day', min(date))
                             , max(date), '1 day') AS day FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
-LEFT   JOIN (SELECT date_trunc('day', date) AS day FROM pids
-															where date >= #[flowVars.start] AND date <= #[flowVars.end]
-															AND content_provider LIKE #[flowVars.cp_mam] 
+LEFT   JOIN (SELECT date_trunc('day', date) AS day, carrier_size FROM pids
+															where date >= #[flowVars.start] AND date <= #[flowVars.end] 
+															AND content_provider LIKE #[flowVars.cp_mam]
 															AND status = 'OK') c
                                                         USING (day)
 ORDER  BY 1;]]></db:parameterized-query>
@@ -248,12 +250,13 @@ ORDER  BY 1;]]></db:parameterized-query>
                 <logger message="1 week" level="INFO" doc:name="1 week = last 7 days"/>
                 <set-variable variableName="start" value="#[server.dateTime.getDate().plusWeeks(-1).toString()]" doc:name="Set start (now() - 1 week)"/>
                 <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusWeeks(-1)]" doc:name="Set startDateTime"/>
-                <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items">
-                    <db:parameterized-query><![CDATA[SELECT distinct m.day x, case when (count(1) OVER (PARTITION BY m.day)) = 1 then 0 else count(1) OVER (PARTITION BY m.day) end y
+                <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items and bytes">
+                    <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.day) x, case when (count(1) OVER (PARTITION BY m.day)) = 1 then 0 else count(1) OVER (PARTITION BY m.day) end items,
+case when (sum(carrier_size) OVER (PARTITION BY m.day)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.day) end bytes
 FROM  (SELECT generate_series(date_trunc('day', min(date))
                             , max(date), '1 day') AS day FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
-LEFT   JOIN (SELECT date_trunc('day', date) AS day FROM pids
-															where date >= #[flowVars.start] AND date <= #[flowVars.end]
+LEFT   JOIN (SELECT date_trunc('day', date) AS day, carrier_size FROM pids
+															where date >= #[flowVars.start] AND date <= #[flowVars.end] 
 															AND content_provider LIKE #[flowVars.cp_mam]
 															AND status = 'OK') c
                                                         USING (day)
@@ -264,16 +267,17 @@ ORDER  BY 1;]]></db:parameterized-query>
                 <logger message="Live data" level="INFO" doc:name="Last day = 24 hours for every 1 hour"/>
                 <set-variable variableName="start" value="#[server.dateTime.getDate().plusDays(-1).toString()]" doc:name="Set start (now() - 1 day)"/>
                 <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusDays(-1)]" doc:name="Set startDateTime"/>
-                <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items">
-                    <db:parameterized-query><![CDATA[SELECT distinct m.hour x, case when (count(1) OVER (PARTITION BY m.hour)) = 1 then 0 else count(1) OVER (PARTITION BY m.hour) end y
+                <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items and bytes">
+                    <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.hour) x, case when (count(1) OVER (PARTITION BY m.hour)) = 1 then 0 else count(1) OVER (PARTITION BY m.hour) end items,
+case when (sum(carrier_size) OVER (PARTITION BY m.hour)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.hour) end bytes
 FROM  (SELECT generate_series(date_trunc('hour', min(date))
                             , max(date), '1 hour') AS hour FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
-LEFT   JOIN (SELECT date_trunc('hour', date) AS hour FROM pids
-															where date >= #[flowVars.start] AND date <= #[flowVars.end]
-															AND content_provider LIKE #[flowVars.cp_mam] 
+LEFT   JOIN (SELECT date_trunc('hour', date) AS hour, carrier_size FROM pids
+															where date >= #[flowVars.start] AND date <= #[flowVars.end] 
+															AND content_provider LIKE #[flowVars.cp_mam]
 															AND status = 'OK') c
                                                         USING (hour)
-ORDER BY m.hour;]]></db:parameterized-query>
+ORDER  BY 1;]]></db:parameterized-query>
                 </db:select>
                 <!--  <component class="FixValues" doc:name="Fix array of values"/> -->
                 
@@ -282,191 +286,170 @@ ORDER BY m.hour;]]></db:parameterized-query>
                 <logger message="Bad granularity, use live-data, 2-days, 1-month or 1-year" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
             </otherwise>
         </choice>
-        <json:object-to-json-transformer doc:name="Object to JSON"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"items":
+		(payload map (
+				{
+					"x": $.x,
+					"y": $.items
+				}
+		)),
+	"bytes": 
+		(payload map (
+				{
+					"x": $.x,
+					"y": $.bytes
+				}
+		))
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <byte-array-to-string-transformer doc:name="Byte Array to String"/>
         <logger message="Done" level="INFO" doc:name="Done"/>
     </flow>
-    <flow name="MAMbytes">
-        <http:listener config-ref="HTTP_Listener_Configuration" path="/api/report/mam/bytes" allowedMethods="GET" doc:name="/api/report/mam/bytes?org={o}&amp;gran={g}"/>
-        <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.org]" doc:name="Set cp_ldap (LDAP ID) (default: OR-rf5kf25 = VRT)"/>
+    <flow name="AMS">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/api/report/ams" allowedMethods="GET" doc:name="/api/report/ams?org={o}&amp;gran={g}
+"/>
+        <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.cp]" doc:name="Set cp_ldap (LDAP ID) (default: OR-rf5kf25 = VRT)"/>
         <choice doc:name="cp_ldap is empty?">
             <when expression="#[flowVars.cp_ldap!=null]">
-                <logger level="INFO" doc:name="TODO: fetch content_provider MAM from LDAP ID"/>
-                <set-variable variableName="cp_mam" value="#['VRT']" doc:name="Set cp_mam (default VRT)"/>
+                <set-variable variableName="cp_ldap" value="#['%']" doc:name="Set cp_ldap (LDAP ID) to %"/>
+                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}#[' WHERE noid_id LIKE \'' + flowVars.cp_ldap + '\'']" doc:name="Set query_ams_organization_ids"/>
+                <logger message="Retrieving global stats: #[flowVars.cp_ldap]" level="INFO" doc:name="Retrieving global stats for an cp"/>
             </when>
             <otherwise>
-                <set-variable variableName="cp_mam" value="#['%']" doc:name="Set cp_mam (default %)"/>
+                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}" doc:name="Set query_ams_organization_ids to every organization"/>
             </otherwise>
         </choice>
         <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'last-day':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
         <set-variable variableName="end" value="#[server.dateTime.getDate().toString()]" doc:name="Set end (now())"/>
-        <set-variable variableName="endDateTime" value="#[server.dateTime.getDate()]" doc:name="Set endDateTime"/>
         <choice doc:name="Last-day, last-week, last-month or last-year?">
             <when expression="#[flowVars.granularity.equals('last-year')]">
                 <logger message="1 year" level="INFO" doc:name="1 year = last 12 months"/>
                 <set-variable variableName="start" value="#[server.dateTime.getDate().plusYears(-1).toString()]" doc:name="Set start (now() - 1 year)"/>
-                <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusYears(-1)]" doc:name="Set startDateTime"/>
-                <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch bytes">
-                    <db:parameterized-query><![CDATA[SELECT distinct m.month x, case when (sum(carrier_size) OVER (PARTITION BY m.month)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.month) end y
-FROM  (SELECT generate_series(date_trunc('month', min(date))
-                            , max(date), '1 month') AS month FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
-LEFT   JOIN (SELECT date_trunc('month', date) AS month, carrier_size FROM pids
-															where date >= #[flowVars.start] AND date <= #[flowVars.end]
-															AND content_provider LIKE #[flowVars.cp_mam] 
-															AND status = 'OK') c
-                                                        USING (month)
-ORDER  BY 1;]]></db:parameterized-query>
+                <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot; + ' AND created_on &lt;= ' + &quot;'&quot; + flowVars.end + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
+                <db:select config-ref="AMS_MySQL2" doc:name="AMS: Fetch amount registered">
+                    <db:dynamic-query><![CDATA[select extract(year_month from created_on), unix_timestamp(min(created_on)) x, count(1) total_registered,
+sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
+sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
+sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
+sum(case when carrier_type_id = 4 then 1 else 0 end) film_registered
+FROM ${ams.db.carrier}
+WHERE organization_id IN (
+	#[flowVars.query_ams_organization_ids]
+)
+AND #[flowVars.timeRange]
+group by extract(year_month from created_on)
+order by min(created_on) asc]]></db:dynamic-query>
                 </db:select>
             </when>
             <when expression="#[flowVars.granularity.equals('last-month')]">
                 <logger message="1 month" level="INFO" doc:name="1 month = last 30 days"/>
                 <set-variable variableName="start" value="#[server.dateTime.getDate().plusMonths(-1).toString()]" doc:name="Set start (now() - 1 month)"/>
-                <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusMonths(-1)]" doc:name="Set startDateTime"/>
-                <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch bytes">
-                    <db:parameterized-query><![CDATA[SELECT distinct m.day x, case when (sum(carrier_size) OVER (PARTITION BY m.day)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.day) end y
-FROM  (SELECT generate_series(date_trunc('day', min(date))
-                            , max(date), '1 day') AS day FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
-LEFT   JOIN (SELECT date_trunc('day', date) AS day, carrier_size FROM pids
-															where date >= #[flowVars.start] AND date <= #[flowVars.end]
-															AND content_provider LIKE #[flowVars.cp_mam] 
-															AND status = 'OK') c
-                                                        USING (day)
-ORDER  BY 1;]]></db:parameterized-query>
+                <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot; + ' AND created_on &lt;= ' + &quot;'&quot; + flowVars.end + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
+                <db:select config-ref="AMS_MySQL2" doc:name="AMS: Fetch amount registered">
+                    <db:dynamic-query><![CDATA[select concat(extract(year_month from created_on), extract(day from created_on)), unix_timestamp(min(created_on)) x, count(1) total_registered,
+sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
+sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
+sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
+sum(case when carrier_type_id = 4 then 1 else 0 end) film_registered
+FROM ${ams.db.carrier}
+WHERE organization_id IN (
+	#[flowVars.query_ams_organization_ids]
+)
+AND #[flowVars.timeRange]
+group by concat(extract(year_month from created_on), extract(day from created_on))
+order by min(created_on) asc]]></db:dynamic-query>
                 </db:select>
             </when>
             <when expression="#[flowVars.granularity.equals('last-week')]">
                 <logger message="1 week" level="INFO" doc:name="1 week = last 7 days"/>
                 <set-variable variableName="start" value="#[server.dateTime.getDate().plusWeeks(-1).toString()]" doc:name="Set start (now() - 1 week)"/>
-                <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusWeeks(-1)]" doc:name="Set startDateTime"/>
-                <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch bytes">
-                    <db:parameterized-query><![CDATA[SELECT distinct m.day x, case when (sum(carrier_size) OVER (PARTITION BY m.day)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.day) end y
-FROM  (SELECT generate_series(date_trunc('day', min(date))
-                            , max(date), '1 day') AS day FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
-LEFT   JOIN (SELECT date_trunc('day', date) AS day, carrier_size  FROM pids
-															where date >= #[flowVars.start] AND date <= #[flowVars.end]
-															AND content_provider LIKE #[flowVars.cp_mam] 
-															AND status = 'OK') c
-                                                        USING (day)
-ORDER  BY 1;]]></db:parameterized-query>
+                <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot; + ' AND created_on &lt;= ' + &quot;'&quot; + flowVars.end + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
+                <db:select config-ref="AMS_MySQL2" doc:name="AMS: Fetch amount registered">
+                    <db:dynamic-query><![CDATA[select concat(extract(year_month from created_on), extract(day from created_on)), unix_timestamp(min(created_on)) x, count(1) total_registered,
+sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
+sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
+sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
+sum(case when carrier_type_id = 4 then 1 else 0 end) film_registered
+FROM ${ams.db.carrier}
+WHERE organization_id IN (
+	#[flowVars.query_ams_organization_ids]
+)
+AND #[flowVars.timeRange]
+group by concat(extract(year_month from created_on), extract(day from created_on))
+order by min(created_on) asc]]></db:dynamic-query>
                 </db:select>
             </when>
             <when expression="#[flowVars.granularity.equals('last-day')]">
                 <logger message="Live data" level="INFO" doc:name="Last day = 24 hours for every 1 hour"/>
                 <set-variable variableName="start" value="#[server.dateTime.getDate().plusDays(-1).toString()]" doc:name="Set start (now() - 1 day)"/>
-                <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusDays(-1)]" doc:name="Set startDateTime"/>
-                <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch bytes">
-                    <db:parameterized-query><![CDATA[SELECT distinct m.hour x, case when (sum(carrier_size) OVER (PARTITION BY m.hour)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.hour) end y
-FROM  (SELECT generate_series(date_trunc('hour', min(date))
-                            , max(date), '1 hour') AS hour FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
-LEFT   JOIN (SELECT date_trunc('hour', date) AS hour, carrier_size FROM pids
-															where date >= #[flowVars.start] AND date <= #[flowVars.end]
-															AND content_provider LIKE #[flowVars.cp_mam]
-															AND status = 'OK') c
-                                                        USING (hour)
-ORDER BY m.hour;]]></db:parameterized-query>
+                <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot; + ' AND created_on &lt;= ' + &quot;'&quot; + flowVars.end + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
+                <db:select config-ref="AMS_MySQL2" doc:name="AMS: Fetch amount registered">
+                    <db:dynamic-query><![CDATA[select concat(extract(year_month from created_on), extract(day from created_on), extract(hour from created_on)), unix_timestamp(min(created_on)) x, count(1) total_registered,
+sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
+sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
+sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
+sum(case when carrier_type_id = 4 then 1 else 0 end) film_registered
+FROM ${ams.db.carrier}
+WHERE organization_id IN (
+	#[flowVars.query_ams_organization_ids]
+)
+AND #[flowVars.timeRange]
+group by concat(extract(year_month from created_on), extract(day from created_on), extract(hour from created_on))
+order by min(created_on) asc]]></db:dynamic-query>
                 </db:select>
             </when>
             <otherwise>
-                <logger message="Bad granularity, use live-data, 2-days, 1-month or 1-year" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
+                <logger message="Bad granularity, use last-year, last-month, last-week or last-day" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
             </otherwise>
         </choice>
-        <json:object-to-json-transformer doc:name="Object to JSON"/>
-        <logger message="Done" level="INFO" doc:name="Done"/>
-    </flow>
-    <flow name="AMSitems">
-        <http:listener config-ref="HTTP_Listener_Configuration" path="/api/report/ams/items" allowedMethods="GET" doc:name="/api/report/ams/items?org={o}&amp;gran={g}
-"/>
-        <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.org]" doc:name="Set cp_ldap (LDAP ID) (default: OR-rf5kf25 = VRT)"/>
-        <choice doc:name="cp_ldap is empty?">
-            <when expression="#[flowVars.cp_ldap!=null]">
-                <logger level="INFO" doc:name="TODO: fetch content_provider MAM from LDAP ID"/>
-                <set-variable variableName="cp_mam" value="#['VRT']" doc:name="Set cp_mam (default VRT)"/>
-                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}#[' WHERE noid_id LIKE \'' + flowVars.cp_ldap + '\'']" doc:name="Set query_ams_organization_ids"/>
-                <set-variable variableName="where_clausule_mam_content_provider" value="#['AND content_provider = ' + flowVars.cp_mam]" doc:name="Set where_clausule_mam_content_provider"/>
-                <logger message="#[Retrieving global stats: flowVars.cp]" level="INFO" doc:name="Retrieving global stats for an cp"/>
-            </when>
-            <otherwise>
-                <set-variable variableName="where_clausule_mam_content_provider" value="#['']" doc:name="Set where_clausule_mam_content_provider as empty"/>
-                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}" doc:name="Set query_ams_organization_ids to every organization"/>
-            </otherwise>
-        </choice>
-        <logger level="INFO" doc:name="TODO: translate LDAP org ID to cp_name MAM"/>
-        <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'last-day':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
-        <set-variable variableName="end" value="#[server.dateTime.getDate().toString()]" doc:name="Set end (now())"/>
-        <set-variable variableName="endDateTime" value="#[server.dateTime.getDate()]" doc:name="Set endDateTime"/>
-        <choice doc:name="Last-day, last-week, last-month or last-year?">
-            <when expression="">
-                <logger message="1 year" level="INFO" doc:name="1 year = last 12 months"/>
-                <set-variable variableName="start" value="#[server.dateTime.getDate().plusYears(-1).toString()]" doc:name="Set start (now() - 1 year)"/>
-                <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusYears(-1)]" doc:name="Set startDateTime"/>
-            </when>
-            <when expression="">
-                <logger message="1 month" level="INFO" doc:name="1 month = last 30 days"/>
-                <set-variable variableName="start" value="#[server.dateTime.getDate().plusMonths(-1).toString()]" doc:name="Set start (now() - 1 month)"/>
-                <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusMonths(-1)]" doc:name="Set startDateTime"/>
-            </when>
-            <when expression="">
-                <logger message="1 week" level="INFO" doc:name="1 week = last 7 days"/>
-                <set-variable variableName="start" value="#[server.dateTime.getDate().plusWeeks(-1).toString()]" doc:name="Set start (now() - 1 week)"/>
-                <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusWeeks(-1)]" doc:name="Set startDateTime"/>
-            </when>
-            <when expression="">
-                <logger message="Live data" level="INFO" doc:name="Last day = 24 hours for every 1 hour"/>
-                <set-variable variableName="start" value="#[server.dateTime.getDate().plusDays(-1).toString()]" doc:name="Set start (now() - 1 day)"/>
-                <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusDays(-1)]" doc:name="Set startDateTime"/>
-            </when>
-            <otherwise>
-                <logger message="Bad granularity, use live-data, 2-days, 1-month or 1-year" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
-            </otherwise>
-        </choice>
-        <json:object-to-json-transformer doc:name="Object to JSON"/>
-        <logger message="Done" level="INFO" doc:name="Done"/>
-    </flow>
-    <flow name="AMSbytes">
-        <http:listener config-ref="HTTP_Listener_Configuration" path="/api/report/ams/bytes" allowedMethods="GET" doc:name="/api/report/ams/bytes?org={o}&amp;gran={g}"/>
-        <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.org]" doc:name="Set cp_ldap (LDAP ID) (default: OR-rf5kf25 = VRT)"/>
-        <choice doc:name="cp_ldap is empty?">
-            <when expression="#[flowVars.cp_ldap!=null]">
-                <logger level="INFO" doc:name="TODO: fetch content_provider MAM from LDAP ID"/>
-                <set-variable variableName="cp_mam" value="#['VRT']" doc:name="Set cp_mam (default VRT)"/>
-                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}#[' WHERE noid_id LIKE \'' + flowVars.cp_ldap + '\'']" doc:name="Set query_ams_organization_ids"/>
-                <set-variable variableName="where_clausule_mam_content_provider" value="#['AND content_provider = ' + flowVars.cp_mam]" doc:name="Set where_clausule_mam_content_provider"/>
-                <logger message="#[Retrieving global stats: flowVars.cp]" level="INFO" doc:name="Retrieving global stats for an cp"/>
-            </when>
-            <otherwise>
-                <set-variable variableName="where_clausule_mam_content_provider" value="#['']" doc:name="Set where_clausule_mam_content_provider as empty"/>
-                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}" doc:name="Set query_ams_organization_ids to every organization"/>
-            </otherwise>
-        </choice>
-        <logger level="INFO" doc:name="TODO: translate LDAP org ID to cp_name MAM"/>
-        <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'last-day':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
-        <set-variable variableName="end" value="#[server.dateTime.getDate().toString()]" doc:name="Set end (now())"/>
-        <set-variable variableName="endDateTime" value="#[server.dateTime.getDate()]" doc:name="Set endDateTime"/>
-        <choice doc:name="Last-day, last-week, last-month or last-year?">
-            <when expression="">
-                <logger message="1 year" level="INFO" doc:name="1 year = last 12 months"/>
-                <set-variable variableName="start" value="#[server.dateTime.getDate().plusYears(-1).toString()]" doc:name="Set start (now() - 1 year)"/>
-                <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusYears(-1)]" doc:name="Set startDateTime"/>
-            </when>
-            <when expression="">
-                <logger message="1 month" level="INFO" doc:name="1 month = last 30 days"/>
-                <set-variable variableName="start" value="#[server.dateTime.getDate().plusMonths(-1).toString()]" doc:name="Set start (now() - 1 month)"/>
-                <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusMonths(-1)]" doc:name="Set startDateTime"/>
-            </when>
-            <when expression="">
-                <logger message="1 week" level="INFO" doc:name="1 week = last 7 days"/>
-                <set-variable variableName="start" value="#[server.dateTime.getDate().plusWeeks(-1).toString()]" doc:name="Set start (now() - 1 week)"/>
-                <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusWeeks(-1)]" doc:name="Set startDateTime"/>
-            </when>
-            <when expression="">
-                <logger message="Live data" level="INFO" doc:name="Last day = 24 hours for every 1 hour"/>
-                <set-variable variableName="start" value="#[server.dateTime.getDate().plusDays(-1).toString()]" doc:name="Set start (now() - 1 day)"/>
-                <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusDays(-1)]" doc:name="Set startDateTime"/>
-            </when>
-            <otherwise>
-                <logger message="Bad granularity, use live-data, 2-days, 1-month or 1-year" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
-            </otherwise>
-        </choice>
-        <json:object-to-json-transformer doc:name="Object to JSON"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"total":
+		(payload map (
+				{
+					"x": $.x,
+					"y": $.total_registered
+				}
+		)),
+	"audio": 
+		(payload map (
+				{
+					"x": $.x,
+					"y": $.audio_registered
+				}
+		)),
+	"video": 
+		(payload map (
+				{
+					"x": $.x,
+					"y": $.video_registered
+				}
+		)),
+	"paper": 
+		(payload map (
+				{
+					"x": $.x,
+					"y": $.paper_registered
+				}
+		)),
+	"film": 
+		(payload map (
+				{
+					"x": $.x,
+					"y": $.film_registered
+				}
+		))
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <byte-array-to-string-transformer doc:name="Byte Array to String"/>
         <logger message="Done" level="INFO" doc:name="Done"/>
     </flow>
 </mule>
