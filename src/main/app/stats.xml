@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
  
-<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:context="http://www.springframework.org/schema/context" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:spring="http://www.springframework.org/schema/beans"  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:context="http://www.springframework.org/schema/context" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:spring="http://www.springframework.org/schema/beans"  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
 http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
 http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
@@ -9,19 +11,27 @@ http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/cu
 http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
 http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
 http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
-http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
     <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="${api.port}" doc:name="HTTP Listener Configuration"/>
     <db:generic-config name="Mediahaven_monitoring" url="jdbc:postgresql://${mam.db.host}:${mam.db.port}/${mam.db.database}?password=${mam.db.password}&amp;user=${mam.db.username}" driverClassName="org.postgresql.Driver" doc:name="MH monitoring DB"> 
         <reconnect-forever></reconnect-forever>  
     </db:generic-config>
-    <db:generic-config name="AMS_MySQL" url="jdbc:mysql://${ams.db.host}:${ams.db.port}/${ams.db.database}?password=${ams.db.password}&amp;user=${ams.db.username}" driverClassName="com.mysql.jdbc.Driver" doc:name="AMS DB"> 
-        <reconnect-forever></reconnect-forever>  
-    </db:generic-config>
     <context:property-placeholder location="${mule.env}.properties"/>
-    <db:mysql-config name="AMS_MySQL2" host="${ams.db.host}" port="${ams.db.port}" user="${ams.db.username}" password="${ams.db.password}" database="${ams.db.database}" doc:name="MySQL Configuration">
+    <db:mysql-config name="AMS_MySQL" host="${ams.db.host}" port="${ams.db.port}" user="${ams.db.username}" password="${ams.db.password}" database="${ams.db.database}" doc:name="MySQL Configuration">
         <reconnect-forever/>
     </db:mysql-config>
-    <flow name="GlobalStats">
+    <db:mysql-config name="AvO_DB" host="${avo.host}" port="3306" user="${avo.user}" password="${avo.password}" database="${avo.database}" doc:name="MySQL Configuration"/>
+    <ee:object-store-caching-strategy name="Caching_MAM" keyGenerationExpression="#[flowVars.cp_ldap+'_mam']" doc:name="Caching Strategy">
+        <in-memory-store name="mam" maxEntries="1000" entryTTL="-1" expirationInterval="600000"/>
+    </ee:object-store-caching-strategy>
+    <ee:object-store-caching-strategy name="Caching_global" keyGenerationExpression="#[flowVars.cp_ldap+'_global']" doc:name="Caching Strategy">
+        <in-memory-store name="global" maxEntries="1000" entryTTL="-1" expirationInterval="600000"/>
+    </ee:object-store-caching-strategy>
+    <ee:object-store-caching-strategy name="Caching_AMS" keyGenerationExpression="#[flowVars.cp_ldap+'_ams']" doc:name="Caching Strategy">
+        <in-memory-store name="ams" maxEntries="1000" entryTTL="-1" expirationInterval="600000"/>
+    </ee:object-store-caching-strategy>
+    <flow name="GlobalStats" >
         <http:listener config-ref="HTTP_Listener_Configuration" path="/api/report/global" doc:name="/api/report/global?cp={c}" allowedMethods="GET"/>
         <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.org]" doc:name="Set cp_ldap (LDAP ID) (default: OR-rf5kf25 = VRT)"/>
         <choice doc:name="cp_ldap is empty?">
@@ -37,13 +47,14 @@ http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee
                 <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}" doc:name="Set query_ams_organization_ids to every organization"/>
             </otherwise>
         </choice>
-        <scatter-gather doc:name="Scatter-Gather">
-            <threading-profile poolExhaustedAction="RUN"/>
-            <processor-chain>
-                <expression-component doc:name="Sleep 20"><![CDATA[Thread.sleep(20);]]></expression-component>
-                <logger message="Start AMS registered" level="INFO" doc:name="Logger"/>
-<db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount registered">
-                    <db:dynamic-query><![CDATA[SELECT count(1) total_registered,
+        <ee:cache cachingStrategy-ref="Caching_global" doc:name="Cache">
+            <scatter-gather doc:name="Scatter-Gather">
+                <threading-profile poolExhaustedAction="RUN"/>
+                <processor-chain>
+                    <expression-component doc:name="Sleep 20"><![CDATA[Thread.sleep(20);]]></expression-component>
+                    <logger message="Start AMS registered" level="INFO" doc:name="Logger"/>
+                    <db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount registered">
+                        <db:dynamic-query><![CDATA[SELECT count(1) total_registered,
 sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
 sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
 sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
@@ -52,13 +63,13 @@ FROM ${ams.db.carrier}
 WHERE organization_id IN (
 	#[flowVars.query_ams_organization_ids]
 )]]></db:dynamic-query>
-        </db:select>
-                <logger message="AMS registered done" level="INFO" doc:name="Logger"/>
-            </processor-chain>
-            <processor-chain>
-                <logger message="start MAM" level="INFO" doc:name="Logger"/>
-<db:select config-ref="Mediahaven_monitoring" doc:name="MAM: Fetch amount and bytes for every mime_type">
-                    <db:dynamic-query><![CDATA[SELECT case when mime_type LIKE '%video%' then 'video' else mime_type end mime_type, 
+                    </db:select>
+                    <logger message="AMS registered done" level="INFO" doc:name="Logger"/>
+                </processor-chain>
+                <processor-chain>
+                    <logger message="start MAM" level="INFO" doc:name="Logger"/>
+                    <db:select config-ref="Mediahaven_monitoring" doc:name="MAM: Fetch amount and bytes for every mime_type">
+                        <db:dynamic-query><![CDATA[SELECT case when mime_type LIKE '%video%' then 'video' else mime_type end mime_type, 
 count(case when status = 'OK' then 1 end) archived_amount_ok, 
 sum(case when status = 'OK' and carrier_size is not null then carrier_size else 0 end) archived_bytes_ok,
 count(case when status = 'NOK' then 1 end) archived_amount_nok, 
@@ -67,16 +78,15 @@ FROM ${mam.db.datatable.pids}
 WHERE status IN ('OK', 'NOK') #[flowVars.where_clausule_mam_content_provider]
 GROUP BY case when mime_type LIKE '%video%' then 'video' else mime_type end
 ORDER BY archived_amount_ok desc]]></db:dynamic-query>
-        </db:select>
-                <flow-ref name="CalcAndAddMAMTotal" doc:name="CalcAndAddMAMTotal"/>
-                
-                <logger message="MAM done" level="INFO" doc:name="Logger"/>
-            </processor-chain>
-            <processor-chain>
-                <expression-component doc:name="Sleep 40"><![CDATA[Thread.sleep(40);]]></expression-component>
-                <logger message="Start AMS digitised" level="INFO" doc:name="Logger"/>
-<db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount digitised for audio, video and film">
-                    <db:dynamic-query><![CDATA[select sum(case when e.event_outcome = 1 and c.carrier_type_id = 1 then 1 else 0 end) audio_digitised_ok,
+                    </db:select>
+                    <flow-ref name="CalcAndAddMAMTotal" doc:name="CalcAndAddMAMTotal"/>
+                    <logger message="MAM done" level="INFO" doc:name="Logger"/>
+                </processor-chain>
+                <processor-chain>
+                    <expression-component doc:name="Sleep 40"><![CDATA[Thread.sleep(40);]]></expression-component>
+                    <logger message="Start AMS digitised" level="INFO" doc:name="Logger"/>
+                    <db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount digitised for audio, video and film">
+                        <db:dynamic-query><![CDATA[select sum(case when e.event_outcome = 1 and c.carrier_type_id = 1 then 1 else 0 end) audio_digitised_ok,
 sum(case when e.event_outcome = 0 and c.carrier_type_id = 1 then 1 else 0 end) audio_digitised_nok,
 sum(case when e.event_outcome = 1 and c.carrier_type_id = 2 then 1 else 0 end) video_digitised_ok,
 sum(case when e.event_outcome = 0 and c.carrier_type_id = 2 then 1 else 0 end) video_digitised_nok,
@@ -91,14 +101,14 @@ where event_lookup_id = 5 AND carrier_id IN (
 												#[flowVars.query_ams_organization_ids]
 											)
 										)]]></db:dynamic-query>
-        </db:select>
-                <logger message="AMS digitised av done" level="INFO" doc:name="Logger"/>
-            </processor-chain>
-             <processor-chain>
-                <expression-component doc:name="Sleep 60"><![CDATA[Thread.sleep(60);]]></expression-component>
-                <logger message="Start AMS digitised paper" level="INFO" doc:name="Logger"/>
-<db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount digitised for paper">
-                    <db:dynamic-query><![CDATA[select sum(case when e.event_outcome = 1 then 1 else 0 end) paper_digitised_ok,
+                    </db:select>
+                    <logger message="AMS digitised av done" level="INFO" doc:name="Logger"/>
+                </processor-chain>
+                <processor-chain>
+                    <expression-component doc:name="Sleep 60"><![CDATA[Thread.sleep(60);]]></expression-component>
+                    <logger message="Start AMS digitised paper" level="INFO" doc:name="Logger"/>
+                    <db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount digitised for paper">
+                        <db:dynamic-query><![CDATA[select sum(case when e.event_outcome = 1 then 1 else 0 end) paper_digitised_ok,
 sum(case when e.event_outcome = 0 then 1 else 0 end) paper_digitised_nok
 from ${ams.db.paper_event} e
 where event_lookup_id = 5 and carrier_id IN (
@@ -108,12 +118,12 @@ where event_lookup_id = 5 and carrier_id IN (
 												#[flowVars.query_ams_organization_ids]
 											)
 										)]]></db:dynamic-query>
-        </db:select>
-                <logger message="AMS digitised paper done" level="INFO" doc:name="Logger"/>
-            </processor-chain>
-        </scatter-gather>
-        <dw:transform-message doc:name="Build nice JSON object">
-            <dw:set-payload><![CDATA[%dw 1.0
+                    </db:select>
+                    <logger message="AMS digitised paper done" level="INFO" doc:name="Logger"/>
+                </processor-chain>
+            </scatter-gather>
+            <dw:transform-message doc:name="Build nice JSON object">
+                <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
 {
@@ -174,8 +184,9 @@ where event_lookup_id = 5 and carrier_id IN (
 		}
 	}	
 }]]></dw:set-payload>
-        </dw:transform-message>
-        <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+            </dw:transform-message>
+            <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+        </ee:cache>
         <logger level="INFO" doc:name="Logger"/>
         <catch-exception-strategy doc:name="Catch Exception Strategy">
             <logger message="Something went wrong" level="INFO" doc:name="Logger"/>
@@ -211,81 +222,105 @@ where event_lookup_id = 5 and carrier_id IN (
         <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'last-day':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
         <set-variable variableName="end" value="#[server.dateTime.getDate().toString()]" doc:name="Set end (now())"/>
         <set-variable variableName="endDateTime" value="#[server.dateTime.getDate()]" doc:name="Set endDateTime"/>
-        <choice doc:name="Last-day, last-week, last-month or last-year?">
-            <when expression="#[flowVars.granularity.equals('last-year')]">
-                <logger message="1 year" level="INFO" doc:name="1 year = last 12 months"/>
-                <set-variable variableName="start" value="#[server.dateTime.getDate().plusYears(-1).toString()]" doc:name="Set start (now() - 1 year)"/>
-                <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusYears(-1)]" doc:name="Set startDateTime"/>
-                <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items and bytes">
-                    <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.month) x, case when (count(1) OVER (PARTITION BY m.month)) = 1 then 0 else count(1) OVER (PARTITION BY m.month) end items,
+        <ee:cache cachingStrategy-ref="Caching_MAM" doc:name="Cache">
+            <choice doc:name="Last-day, last-week, last-month or last-year?">
+                <when expression="#[flowVars.granularity.equals('last-year')]">
+                    <logger message="1 year" level="INFO" doc:name="1 year = last 12 months"/>
+                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusYears(-1).toString()]" doc:name="Set start (now() - 1 year)"/>
+                    <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusYears(-1)]" doc:name="Set startDateTime"/>
+                    <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items and bytes">
+                        <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.month) x, case when (count(1) OVER (PARTITION BY m.month)) = 1 then 0 else count(1) OVER (PARTITION BY m.month) end items,
 case when (sum(carrier_size) OVER (PARTITION BY m.month)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.month) end bytes
 FROM  (SELECT generate_series(date_trunc('month', min(date))
                             , max(date), '1 month') AS month FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
 LEFT   JOIN (SELECT date_trunc('month', date) AS month, carrier_size FROM pids
 															where date >= #[flowVars.start] AND date <= #[flowVars.end] 
 															AND content_provider LIKE #[flowVars.cp_mam]
-															AND status = 'OK') c
+															AND status = 'OK'
+															AND pid IN (
+																select pid
+																from events
+																where date >= #[flowVars.start] AND date <= #[flowVars.end]
+																	AND key = 'ARCHIVED_ON_TAPE_VAULT'
+															)) c
                                                         USING (month)
 ORDER  BY 1;]]></db:parameterized-query>
-                </db:select>
-            </when>
-            <when expression="#[flowVars.granularity.equals('last-month')]">
-                <logger message="1 month" level="INFO" doc:name="1 month = last 30 days"/>
-                <set-variable variableName="start" value="#[server.dateTime.getDate().plusMonths(-1).toString()]" doc:name="Set start (now() - 1 month)"/>
-                <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusMonths(-1)]" doc:name="Set startDateTime"/>
-                <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items and bytes">
-                    <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.day) x, case when (count(1) OVER (PARTITION BY m.day)) = 1 then 0 else count(1) OVER (PARTITION BY m.day) end items,
+                    </db:select>
+                </when>
+                <when expression="#[flowVars.granularity.equals('last-month')]">
+                    <logger message="1 month" level="INFO" doc:name="1 month = last 30 days"/>
+                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusMonths(-1).toString()]" doc:name="Set start (now() - 1 month)"/>
+                    <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusMonths(-1)]" doc:name="Set startDateTime"/>
+                    <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items and bytes">
+                        <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.day) x, case when (count(1) OVER (PARTITION BY m.day)) = 1 then 0 else count(1) OVER (PARTITION BY m.day) end items,
 case when (sum(carrier_size) OVER (PARTITION BY m.day)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.day) end bytes
 FROM  (SELECT generate_series(date_trunc('day', min(date))
                             , max(date), '1 day') AS day FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
 LEFT   JOIN (SELECT date_trunc('day', date) AS day, carrier_size FROM pids
 															where date >= #[flowVars.start] AND date <= #[flowVars.end] 
 															AND content_provider LIKE #[flowVars.cp_mam]
-															AND status = 'OK') c
+															AND status = 'OK'
+															AND pid IN (
+																select pid
+																from events
+																where date >= #[flowVars.start] AND date <= #[flowVars.end]
+																	AND key = 'ARCHIVED_ON_TAPE_VAULT'
+															)) c
                                                         USING (day)
 ORDER  BY 1;]]></db:parameterized-query>
-                </db:select>
-            </when>
-            <when expression="#[flowVars.granularity.equals('last-week')]">
-                <logger message="1 week" level="INFO" doc:name="1 week = last 7 days"/>
-                <set-variable variableName="start" value="#[server.dateTime.getDate().plusWeeks(-1).toString()]" doc:name="Set start (now() - 1 week)"/>
-                <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusWeeks(-1)]" doc:name="Set startDateTime"/>
-                <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items and bytes">
-                    <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.day) x, case when (count(1) OVER (PARTITION BY m.day)) = 1 then 0 else count(1) OVER (PARTITION BY m.day) end items,
+                    </db:select>
+                </when>
+                <when expression="#[flowVars.granularity.equals('last-week')]">
+                    <logger message="1 week" level="INFO" doc:name="1 week = last 7 days"/>
+                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusWeeks(-1).toString()]" doc:name="Set start (now() - 1 week)"/>
+                    <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusWeeks(-1)]" doc:name="Set startDateTime"/>
+                    <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items and bytes">
+                        <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.day) x, case when (count(1) OVER (PARTITION BY m.day)) = 1 then 0 else count(1) OVER (PARTITION BY m.day) end items,
 case when (sum(carrier_size) OVER (PARTITION BY m.day)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.day) end bytes
 FROM  (SELECT generate_series(date_trunc('day', min(date))
                             , max(date), '1 day') AS day FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
 LEFT   JOIN (SELECT date_trunc('day', date) AS day, carrier_size FROM pids
 															where date >= #[flowVars.start] AND date <= #[flowVars.end] 
 															AND content_provider LIKE #[flowVars.cp_mam]
-															AND status = 'OK') c
+															AND status = 'OK'
+															AND pid IN (
+																select pid
+																from events
+																where date >= #[flowVars.start] AND date <= #[flowVars.end]
+																	AND key = 'ARCHIVED_ON_TAPE_VAULT'
+															)) c
                                                         USING (day)
 ORDER  BY 1;]]></db:parameterized-query>
-                </db:select>
-            </when>
-            <when expression="#[flowVars.granularity.equals('last-day')]">
-                <logger message="Live data" level="INFO" doc:name="Last day = 24 hours for every 1 hour"/>
-                <set-variable variableName="start" value="#[server.dateTime.getDate().plusDays(-1).toString()]" doc:name="Set start (now() - 1 day)"/>
-                <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusDays(-1)]" doc:name="Set startDateTime"/>
-                <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items and bytes">
-                    <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.hour) x, case when (count(1) OVER (PARTITION BY m.hour)) = 1 then 0 else count(1) OVER (PARTITION BY m.hour) end items,
+                    </db:select>
+                </when>
+                <when expression="#[flowVars.granularity.equals('last-day')]">
+                    <logger message="Live data" level="INFO" doc:name="Last day = 24 hours for every 1 hour"/>
+                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusDays(-1).toString()]" doc:name="Set start (now() - 1 day)"/>
+                    <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusDays(-1)]" doc:name="Set startDateTime"/>
+                    <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items and bytes">
+                        <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.hour) x, case when (count(1) OVER (PARTITION BY m.hour)) = 1 then 0 else count(1) OVER (PARTITION BY m.hour) end items,
 case when (sum(carrier_size) OVER (PARTITION BY m.hour)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.hour) end bytes
 FROM  (SELECT generate_series(date_trunc('hour', min(date))
                             , max(date), '1 hour') AS hour FROM pids where date >= #[flowVars.start] AND date <= #[flowVars.end]) m
 LEFT   JOIN (SELECT date_trunc('hour', date) AS hour, carrier_size FROM pids
 															where date >= #[flowVars.start] AND date <= #[flowVars.end] 
 															AND content_provider LIKE #[flowVars.cp_mam]
-															AND status = 'OK') c
+															AND status = 'OK'
+															AND pid IN (
+																select pid
+																from events
+																where date >= #[flowVars.start] AND date <= #[flowVars.end]
+																	AND key = 'ARCHIVED_ON_TAPE_VAULT'
+															)) c
                                                         USING (hour)
 ORDER  BY 1;]]></db:parameterized-query>
-                </db:select>
-                <!--  <component class="FixValues" doc:name="Fix array of values"/> -->
-                
-            </when>
-            <otherwise>
-                <logger message="Bad granularity, use live-data, 2-days, 1-month or 1-year" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
-            </otherwise>
-        </choice>
+                    </db:select>
+                </when>
+                <otherwise>
+                    <logger message="Bad granularity, use live-data, 2-days, 1-month or 1-year" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
+                </otherwise>
+            </choice>
+        </ee:cache>
         <dw:transform-message doc:name="Transform Message">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
@@ -326,13 +361,14 @@ ORDER  BY 1;]]></db:parameterized-query>
         </choice>
         <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'last-day':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
         <set-variable variableName="end" value="#[server.dateTime.getDate().toString()]" doc:name="Set end (now())"/>
-        <choice doc:name="Last-day, last-week, last-month or last-year?">
-            <when expression="#[flowVars.granularity.equals('last-year')]">
-                <logger message="1 year" level="INFO" doc:name="1 year = last 12 months"/>
-                <set-variable variableName="start" value="#[server.dateTime.getDate().plusYears(-1).toString()]" doc:name="Set start (now() - 1 year)"/>
-                <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot; + ' AND created_on &lt;= ' + &quot;'&quot; + flowVars.end + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
-                <db:select config-ref="AMS_MySQL2" doc:name="AMS: Fetch amount registered">
-                    <db:dynamic-query><![CDATA[select extract(year_month from created_on), unix_timestamp(min(created_on)) x, count(1) total_registered,
+        <ee:cache cachingStrategy-ref="Caching_AMS" doc:name="Cache">
+            <choice doc:name="Last-day, last-week, last-month or last-year?">
+                <when expression="#[flowVars.granularity.equals('last-year')]">
+                    <logger message="1 year" level="INFO" doc:name="1 year = last 12 months"/>
+                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusYears(-1).toString()]" doc:name="Set start (now() - 1 year)"/>
+                    <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot; + ' AND created_on &lt;= ' + &quot;'&quot; + flowVars.end + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
+                    <db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount registered">
+                        <db:dynamic-query><![CDATA[select extract(year_month from created_on), unix_timestamp(min(created_on)) x, count(1) total_registered,
 sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
 sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
 sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
@@ -344,14 +380,14 @@ WHERE organization_id IN (
 AND #[flowVars.timeRange]
 group by extract(year_month from created_on)
 order by min(created_on) asc]]></db:dynamic-query>
-                </db:select>
-            </when>
-            <when expression="#[flowVars.granularity.equals('last-month')]">
-                <logger message="1 month" level="INFO" doc:name="1 month = last 30 days"/>
-                <set-variable variableName="start" value="#[server.dateTime.getDate().plusMonths(-1).toString()]" doc:name="Set start (now() - 1 month)"/>
-                <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot; + ' AND created_on &lt;= ' + &quot;'&quot; + flowVars.end + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
-                <db:select config-ref="AMS_MySQL2" doc:name="AMS: Fetch amount registered">
-                    <db:dynamic-query><![CDATA[select concat(extract(year_month from created_on), extract(day from created_on)), unix_timestamp(min(created_on)) x, count(1) total_registered,
+                    </db:select>
+                </when>
+                <when expression="#[flowVars.granularity.equals('last-month')]">
+                    <logger message="1 month" level="INFO" doc:name="1 month = last 30 days"/>
+                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusMonths(-1).toString()]" doc:name="Set start (now() - 1 month)"/>
+                    <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot; + ' AND created_on &lt;= ' + &quot;'&quot; + flowVars.end + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
+                    <db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount registered">
+                        <db:dynamic-query><![CDATA[select concat(extract(year_month from created_on), extract(day from created_on)), unix_timestamp(min(created_on)) x, count(1) total_registered,
 sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
 sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
 sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
@@ -363,14 +399,14 @@ WHERE organization_id IN (
 AND #[flowVars.timeRange]
 group by concat(extract(year_month from created_on), extract(day from created_on))
 order by min(created_on) asc]]></db:dynamic-query>
-                </db:select>
-            </when>
-            <when expression="#[flowVars.granularity.equals('last-week')]">
-                <logger message="1 week" level="INFO" doc:name="1 week = last 7 days"/>
-                <set-variable variableName="start" value="#[server.dateTime.getDate().plusWeeks(-1).toString()]" doc:name="Set start (now() - 1 week)"/>
-                <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot; + ' AND created_on &lt;= ' + &quot;'&quot; + flowVars.end + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
-                <db:select config-ref="AMS_MySQL2" doc:name="AMS: Fetch amount registered">
-                    <db:dynamic-query><![CDATA[select concat(extract(year_month from created_on), extract(day from created_on)), unix_timestamp(min(created_on)) x, count(1) total_registered,
+                    </db:select>
+                </when>
+                <when expression="#[flowVars.granularity.equals('last-week')]">
+                    <logger message="1 week" level="INFO" doc:name="1 week = last 7 days"/>
+                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusWeeks(-1).toString()]" doc:name="Set start (now() - 1 week)"/>
+                    <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot; + ' AND created_on &lt;= ' + &quot;'&quot; + flowVars.end + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
+                    <db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount registered">
+                        <db:dynamic-query><![CDATA[select concat(extract(year_month from created_on), extract(day from created_on)), unix_timestamp(min(created_on)) x, count(1) total_registered,
 sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
 sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
 sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
@@ -382,14 +418,14 @@ WHERE organization_id IN (
 AND #[flowVars.timeRange]
 group by concat(extract(year_month from created_on), extract(day from created_on))
 order by min(created_on) asc]]></db:dynamic-query>
-                </db:select>
-            </when>
-            <when expression="#[flowVars.granularity.equals('last-day')]">
-                <logger message="Live data" level="INFO" doc:name="Last day = 24 hours for every 1 hour"/>
-                <set-variable variableName="start" value="#[server.dateTime.getDate().plusDays(-1).toString()]" doc:name="Set start (now() - 1 day)"/>
-                <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot; + ' AND created_on &lt;= ' + &quot;'&quot; + flowVars.end + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
-                <db:select config-ref="AMS_MySQL2" doc:name="AMS: Fetch amount registered">
-                    <db:dynamic-query><![CDATA[select concat(extract(year_month from created_on), extract(day from created_on), extract(hour from created_on)), unix_timestamp(min(created_on)) x, count(1) total_registered,
+                    </db:select>
+                </when>
+                <when expression="#[flowVars.granularity.equals('last-day')]">
+                    <logger message="Live data" level="INFO" doc:name="Last day = 24 hours for every 1 hour"/>
+                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusDays(-1).toString()]" doc:name="Set start (now() - 1 day)"/>
+                    <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot; + ' AND created_on &lt;= ' + &quot;'&quot; + flowVars.end + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
+                    <db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount registered">
+                        <db:dynamic-query><![CDATA[select concat(extract(year_month from created_on), extract(day from created_on), extract(hour from created_on)), unix_timestamp(min(created_on)) x, count(1) total_registered,
 sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
 sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
 sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
@@ -401,12 +437,13 @@ WHERE organization_id IN (
 AND #[flowVars.timeRange]
 group by concat(extract(year_month from created_on), extract(day from created_on), extract(hour from created_on))
 order by min(created_on) asc]]></db:dynamic-query>
-                </db:select>
-            </when>
-            <otherwise>
-                <logger message="Bad granularity, use last-year, last-month, last-week or last-day" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
-            </otherwise>
-        </choice>
+                    </db:select>
+                </when>
+                <otherwise>
+                    <logger message="Bad granularity, use last-year, last-month, last-week or last-day" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
+                </otherwise>
+            </choice>
+        </ee:cache>
         <dw:transform-message doc:name="Transform Message">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
@@ -451,5 +488,185 @@ order by min(created_on) asc]]></db:dynamic-query>
         </dw:transform-message>
         <byte-array-to-string-transformer doc:name="Byte Array to String"/>
         <logger message="Done" level="INFO" doc:name="Done"/>
+    </flow>
+    <flow name="AvO">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/api/avo/users" allowedMethods="GET" doc:name="/api/avo/users"/>
+        <logger message="Start /api/avo/users" level="INFO" doc:name="Start /api/avo/users"/>
+        <set-variable variableName="format" value="#[message.inboundProperties.'http.query.params'.format == null ? 'JSON' : message.inboundProperties.'http.query.params'.format.toUpperCase() == 'JSON' ? 'JSON' : 'CSV']" doc:name="Set format to JSON or CSV"/>
+        <choice doc:name="Timerange available?">
+            <when expression="#[message.inboundProperties.'http.query.params'.from != null &amp;&amp; message.inboundProperties.'http.query.params'.until != null]">
+                <set-variable variableName="from" value="#[message.inboundProperties.'http.query.params'.from]" doc:name="Set from"/>
+                <set-variable variableName="until" value="#[message.inboundProperties.'http.query.params'.until]" doc:name="until"/>
+                <set-variable variableName="timerange-clausule" value="#[' AND u.created &gt;= ' + &quot;'&quot; + flowVars.from + &quot;'&quot; + ' AND u.created &lt;= ' + &quot;'&quot; + flowVars.until + &quot;'&quot;]" doc:name="Set timerange-clausule"/>
+            </when>
+            <when expression="#[message.inboundProperties.'http.query.params'.from == null &amp;&amp; message.inboundProperties.'http.query.params'.until != null]">
+                <set-variable variableName="until" value="#[message.inboundProperties.'http.query.params'.until]" doc:name="Only until"/>
+                <set-variable variableName="timerange-clausule" value="#[' AND u.created &lt;= ' + &quot;'&quot; + flowVars.until + &quot;'&quot;]" doc:name="Set timerange-clausule"/>
+            </when>
+            <when expression="#[message.inboundProperties.'http.query.params'.from != null &amp;&amp; message.inboundProperties.'http.query.params'.until == null]">
+                <set-variable variableName="from" value="#[message.inboundProperties.'http.query.params'.from]" doc:name="Only from"/>
+                <set-variable variableName="timerange-clausule" value="#[' AND u.created &gt;= ' + &quot;'&quot; + flowVars.from + &quot;'&quot;]" doc:name="Set timerange-clausule"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="timerange-clausule" value="#['']" doc:name="Set timerange-clausule empty"/>
+            </otherwise>
+        </choice>
+        <db:select config-ref="AvO_DB" doc:name="AvO: fetch users">
+            <db:dynamic-query><![CDATA[SELECT 
+    u.uid,
+    p.pid,
+    u.name naam,
+    u.mail 'e-mail',
+    u.status active,
+    FROM_UNIXTIME(u.created) created,
+    FROM_UNIXTIME(u.access) access,
+    r.name rol,
+    GROUP_CONCAT(rl.field_registratie_leraarkaart_value) lerarenkaart,
+    GROUP_CONCAT(td.name
+        SEPARATOR ', ') graad,
+    GROUP_CONCAT(DISTINCT n.title
+        SEPARATOR ', ') school,
+    SUBSTRING_INDEX(m.sourceid1, '_', 1) vestigingsnummer
+FROM
+    users u
+        LEFT JOIN
+    users_roles ur ON ur.uid = u.uid
+    AND u.created >= 1473897600
+        JOIN
+    role r ON r.rid = ur.rid
+        LEFT JOIN
+    profile p ON p.uid = u.uid
+        LEFT JOIN
+    field_data_field_registratie_leraarkaart rl ON rl.entity_id = p.pid
+        LEFT JOIN
+    field_data_field_leerjaar_ref lr ON lr.entity_id = p.pid
+        LEFT JOIN
+    taxonomy_term_data td ON td.tid = lr.field_leerjaar_ref_target_id
+        LEFT JOIN
+    field_data_field_registratie_scholen rs ON rs.entity_id = p.pid
+        LEFT JOIN
+    field_data_field_scholen fs ON fs.entity_id = p.pid
+        LEFT JOIN
+    node n ON n.nid = fs.field_scholen_target_id
+        LEFT JOIN
+    migrate_map_testbeeld_contentonderwijsinstellingen m ON m.destid1 = n.nid
+WHERE
+    ur.rid = '31' OR ur.rid = '51'
+    #[flowVars.'timerange-clausule']
+GROUP BY u.uid
+order by u.created desc]]></db:dynamic-query>
+        </db:select>
+        <choice doc:name="Choice">
+            <when expression="#[flowVars.format == 'CSV']">
+                <dw:transform-message doc:name="To CSV">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/csv
+---
+payload]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <dw:transform-message doc:name="To JSON">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload]]></dw:set-payload>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
+       	<logger message="Done /api/avo/users" level="INFO" doc:name="Done"/>
+    </flow>
+    <flow name="AvO1">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/api/avo/users/count" allowedMethods="GET" doc:name="/api/avo/users/count"/>
+        <logger message="Start /api/avo/users/count" level="INFO" doc:name="Start /api/avo/users/count"/>
+        <db:select config-ref="AvO_DB" doc:name="count users">
+            <db:dynamic-query><![CDATA[SELECT count(1) aantal_users
+FROM users u]]></db:dynamic-query>
+        </db:select>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	aantal_users: payload[0].aantal_users
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <logger message="Done /api/avo/users" level="INFO" doc:name="Done"/>
+    </flow>
+    <flow name="AvO2">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/api/avo/users/roles" allowedMethods="GET" doc:name="/api/avo/users/roles"/>
+        <logger message="Start /api/avo/users/roles" level="INFO" doc:name="Start /api/avo/users/roles"/>
+        <db:select config-ref="AvO_DB" doc:name="AvO: fetch count per role">
+            <db:dynamic-query><![CDATA[SELECT max(r.name) rol, count(1) count
+FROM users u
+        LEFT JOIN
+    users_roles ur ON ur.uid = u.uid
+        JOIN
+    role r ON r.rid = ur.rid
+GROUP BY r.name;]]></db:dynamic-query>
+        </db:select>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <logger message="Done /api/avo/users" level="INFO" doc:name="Done"/>
+    </flow>
+    <flow name="AvO3">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/api/avo/items/count" allowedMethods="GET" doc:name="/api/avo/items/count"/>
+        <logger message="Start /api/avo/items/count" level="INFO" doc:name="Start /api/avo/items/count"/>
+        <db:select config-ref="AvO_DB" doc:name="AvO: fetch items per type">
+            <db:dynamic-query><![CDATA[SELECT 
+    u.uid,
+    p.pid,
+    u.name naam,
+    u.mail 'e-mail',
+    u.status active,
+    FROM_UNIXTIME(u.created) created,
+    FROM_UNIXTIME(u.access) access,
+    r.name rol,
+    GROUP_CONCAT(rl.field_registratie_leraarkaart_value) lerarenkaart,
+    GROUP_CONCAT(td.name
+        SEPARATOR ', ') graad,
+    GROUP_CONCAT(DISTINCT n.title
+        SEPARATOR ', ') school,
+    SUBSTRING_INDEX(m.sourceid1, '_', 1) vestigingsnummer
+FROM
+    users u
+        LEFT JOIN
+    users_roles ur ON ur.uid = u.uid
+    AND u.created >= 1473897600
+        JOIN
+    role r ON r.rid = ur.rid
+        LEFT JOIN
+    profile p ON p.uid = u.uid
+        LEFT JOIN
+    field_data_field_registratie_leraarkaart rl ON rl.entity_id = p.pid
+        LEFT JOIN
+    field_data_field_leerjaar_ref lr ON lr.entity_id = p.pid
+        LEFT JOIN
+    taxonomy_term_data td ON td.tid = lr.field_leerjaar_ref_target_id
+        LEFT JOIN
+    field_data_field_registratie_scholen rs ON rs.entity_id = p.pid
+        LEFT JOIN
+    field_data_field_scholen fs ON fs.entity_id = p.pid
+        LEFT JOIN
+    node n ON n.nid = fs.field_scholen_target_id
+        LEFT JOIN
+    migrate_map_testbeeld_contentonderwijsinstellingen m ON m.destid1 = n.nid
+WHERE
+    ur.rid = '31' OR ur.rid = '51'
+GROUP BY u.uid
+order by u.created desc
+LIMIT 10;]]></db:dynamic-query>
+        </db:select>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <logger message="Done /api/avo/users" level="INFO" doc:name="Done"/>
     </flow>
 </mule>
