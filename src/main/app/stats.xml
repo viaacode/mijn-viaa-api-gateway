@@ -131,38 +131,39 @@ where event_lookup_id = 5 and carrier_id IN (
             </scatter-gather>
             <dw:transform-message doc:name="Build nice JSON object">
                 <dw:set-payload><![CDATA[%dw 1.0
+%function zero(n) n when n!=null otherwise 0
 %output application/json
 ---
 {
 	"registered": {
-		"video": payload[0][0].video_registered,
-		"audio": payload[0][0].audio_registered,
-		"film": payload[0][0].film_registered,	
-		"paper": payload[0][0].paper_registered,
-		"total": payload[0][0].total_registered
+		"video": zero(payload[0][0].video_registered),
+		"audio": zero(payload[0][0].audio_registered),
+		"film": zero(payload[0][0].film_registered),	
+		"paper": zero(payload[0][0].paper_registered),
+		"total": zero(payload[0][0].total_registered)
 	},
 	"archived": { (payload[1] map (
 			{
 				($.mime_type): {
 					"amount": {
-						"ok": $.archived_amount_ok,
-						"nok": $.archived_amount_nok
+						"ok": zero($.archived_amount_ok),
+						"nok": zero($.archived_amount_nok)
 					},
 					"bytes": {
-						"ok": $.archived_bytes_ok,
-						"nok": $.archived_bytes_nok
+						"ok": zero($.archived_bytes_ok),
+						"nok": zero($.archived_bytes_nok)
 					}
 				}
 			} when $.mime_type != null 
 			otherwise {
 				"unknown": {
 					"amount": {
-						"ok": $.archived_amount_ok,
-						"nok": $.archived_amount_nok
+						"ok": zero($.archived_amount_ok),
+						"nok": zero($.archived_amount_nok)
 					},
 					"bytes": {
-						"ok": $.archived_bytes_ok,
-						"nok": $.archived_bytes_nok
+						"ok": zero($.archived_bytes_ok),
+						"nok": zero($.archived_bytes_nok)
 					}
 				}
 			} 
@@ -170,24 +171,24 @@ where event_lookup_id = 5 and carrier_id IN (
 	},
 	"digitised": {
 		"video": {
-			"ok": payload[2][0].video_digitised_ok,
-			"nok": payload[2][0].video_digitised_nok
+			"ok": zero(payload[2][0].video_digitised_ok),
+			"nok": zero(payload[2][0].video_digitised_nok)
 		},
 		"audio": {
-			"ok": payload[2][0].audio_digitised_ok,
-			"nok": payload[2][0].audio_digitised_nok
+			"ok": zero(payload[2][0].audio_digitised_ok),
+			"nok": zero(payload[2][0].audio_digitised_nok)
 		},
 		"film": {
-			"ok": payload[2][0].film_digitised_ok,
-			"nok": payload[2][0].film_digitised_nok
+			"ok": zero(payload[2][0].film_digitised_ok),
+			"nok": zero(payload[2][0].film_digitised_nok)
 		},
 		"paper": {
-			"ok": payload[3][0].paper_digitised_ok,
-			"nok": payload[3][0].paper_digitised_nok
+			"ok": zero(payload[3][0].paper_digitised_ok),
+			"nok": zero(payload[3][0].paper_digitised_nok)
 		},
 		"total": {
-			"ok": payload[2][0].video_digitised_ok + payload[2][0].audio_digitised_ok + payload[2][0].film_digitised_ok + payload[3][0].paper_digitised_ok,
-			"nok": payload[2][0].video_digitised_nok + payload[2][0].audio_digitised_nok + payload[2][0].film_digitised_nok + payload[3][0].paper_digitised_nok
+			"ok": zero(payload[2][0].video_digitised_ok) + zero(payload[2][0].audio_digitised_ok) + zero(payload[2][0].film_digitised_ok) + zero(payload[3][0].paper_digitised_ok),
+			"nok": zero(payload[2][0].video_digitised_nok) + zero(payload[2][0].audio_digitised_nok) + zero(payload[2][0].film_digitised_nok) + zero(payload[3][0].paper_digitised_nok)
 		}
 	}	
 }]]></dw:set-payload>
@@ -721,7 +722,7 @@ GROUP BY media_id
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-payload]]></dw:set-payload>
+payload[0]]]></dw:set-payload>
         </dw:transform-message>
     </flow>
 </mule>

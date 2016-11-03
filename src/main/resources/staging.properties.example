@@ -30,5 +30,3 @@ borndigital.db.port=
 borndigital.db.username=
 borndigital.db.password=
 borndigital.db.database=
-borndigital.db.datatable.vrt_message_buffer=
-borndigital.db.datatable.vrt_message_proceslog=
