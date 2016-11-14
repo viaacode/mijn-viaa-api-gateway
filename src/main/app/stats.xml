@@ -413,7 +413,7 @@ ORDER  BY 1;]]></db:parameterized-query>
 "/>
         <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.cp]" doc:name="Set cp_ldap (LDAP ID)"/>
         <choice doc:name="cp_ldap is empty?">
-            <when expression="#[flowVars.cp_ldap!=null &amp;&amp; flowVars.cp_ldap!='null']">
+            <when expression="#[flowVars.cp_ldap!=null &amp;&amp; flowVars.cp_ldap!='null' &amp;&amp; flowVars.cp_ldap != 'OR-w66976m']">
                 <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}#[' WHERE noid_id LIKE \'' + flowVars.cp_ldap + '\'']" doc:name="Set query_ams_organization_ids"/>
                 <logger message="Retrieving global stats: #[flowVars.cp_ldap]" level="INFO" doc:name="Retrieving global stats for an cp"/>
             </when>
@@ -661,7 +661,6 @@ payload]]></dw:set-payload>
 FROM users u
 	LEFT JOIN users_roles ur ON ur.uid = u.uid
 	JOIN role r ON r.rid = ur.rid
-where r.name IN ('Student', 'Docent')
 group by r.name
 order by r.name]]></db:dynamic-query>
         </db:select>
@@ -670,9 +669,7 @@ order by r.name]]></db:dynamic-query>
 %output application/json
 ---
 {
-	aantal_users: payload[0].aantal + payload[1].aantal,
-	aantal_studenten: payload[0].aantal,
-	aantal_docenten: payload[1].aantal
+	(payload map using (rol = $.rol) '$rol': payload[$$].aantal)
 }]]></dw:set-payload>
         </dw:transform-message>
         <logger message="Done /api/avo/users" level="INFO" doc:name="Done"/>
