@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
  
-<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:file="http://www.mulesoft.org/schema/mule/file"
+<mule xmlns:smtps="http://www.mulesoft.org/schema/mule/smtps" xmlns:smtp="http://www.mulesoft.org/schema/mule/smtp" xmlns:ftp="http://www.mulesoft.org/schema/mule/ee/ftp" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:file="http://www.mulesoft.org/schema/mule/file"
 	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:context="http://www.springframework.org/schema/context" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:spring="http://www.springframework.org/schema/beans"  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
 http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
 http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
@@ -12,7 +12,10 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
 http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
 http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
 http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
-http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/ee/ftp http://www.mulesoft.org/schema/mule/ee/ftp/current/mule-ftp-ee.xsd
+http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smtp/current/mule-smtp.xsd
+http://www.mulesoft.org/schema/mule/smtps http://www.mulesoft.org/schema/mule/smtps/current/mule-smtps.xsd">
     <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="${api.port}" doc:name="HTTP Listener Configuration"/>
     <db:generic-config name="Mediahaven_monitoring" url="jdbc:postgresql://${mam.db.host}:${mam.db.port}/${mam.db.database}?password=${mam.db.password}&amp;user=${mam.db.username}" driverClassName="org.postgresql.Driver" doc:name="MH monitoring DB"> 
         <reconnect-forever></reconnect-forever>  
@@ -20,7 +23,6 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
     <db:generic-config name="Borndigital" url="jdbc:postgresql://${borndigital.db.host}:${borndigital.db.port}/${borndigital.db.database}?password=${borndigital.db.password}&amp;user=${borndigital.db.username}" driverClassName="org.postgresql.Driver" doc:name="Borndigital DB"> 
         <reconnect-forever></reconnect-forever>  
     </db:generic-config>
-    <context:property-placeholder location="${mule.env}.properties"/>
     <context:property-placeholder location="${mule.env}.properties"/>
     <db:mysql-config name="AMS_MySQL" host="${ams.db.host}" port="${ams.db.port}" user="${ams.db.username}" password="${ams.db.password}" database="${ams.db.database}" doc:name="MySQL Configuration">
         <reconnect-forever/>
@@ -39,6 +41,8 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
         <managed-store storeName="avo_users_count" maxEntries="1" entryTTL="-1" expirationInterval="600000"/>
     </ee:object-store-caching-strategy>
     <http:request-config name="ldap2mam_http" host="${ldap2mam.host}" port="${ldap2mam.port}" basePath="/" responseTimeout="30000" doc:name="HTTP Request Configuration"/>
+    <http:request-config name="Slack" protocol="HTTPS" host="${slack.host}" port="${slack.port}" basePath="${slack.baseurl}" doc:name="HTTP Request Configuration"/>
+    <smtp:gmail-connector name="gmailconfig" doc:name="Gmail"/>
     <flow name="GlobalStats" >
         <http:listener config-ref="HTTP_Listener_Configuration" path="/api/report/global" doc:name="/api/report/global?cp={c}" allowedMethods="GET"/>
         <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.cp]" doc:name="Set cp_ldap (LDAP ID)"/>
@@ -570,6 +574,8 @@ order by min(created_on) asc]]></db:dynamic-query>
         <http:listener config-ref="HTTP_Listener_Configuration" path="/api/avo/users" allowedMethods="GET" doc:name="/api/avo/users"/>
         <logger message="Start /api/avo/users" level="INFO" doc:name="Start /api/avo/users"/>
         <set-variable variableName="format" value="#[message.inboundProperties.'http.query.params'.format == null ? 'JSON' : message.inboundProperties.'http.query.params'.format.toUpperCase() == 'JSON' ? 'JSON' : 'CSV']" doc:name="Set format to JSON or CSV"/>
+        <set-variable variableName="slack" value="#[message.inboundProperties.'http.query.params'.slack]" doc:name="Set slack"/>
+        <set-variable variableName="email" value="#[message.inboundProperties.'http.query.params'.email]" doc:name="Set email"/>
         <choice doc:name="Timerange available?">
             <when expression="#[message.inboundProperties.'http.query.params'.from != null &amp;&amp; message.inboundProperties.'http.query.params'.until != null]">
                 <set-variable variableName="from" value="#[message.inboundProperties.'http.query.params'.from]" doc:name="Set from"/>
@@ -588,8 +594,9 @@ order by min(created_on) asc]]></db:dynamic-query>
                 <set-variable variableName="timerange-clausule" value="#['']" doc:name="Set timerange-clausule empty"/>
             </otherwise>
         </choice>
-        <db:select config-ref="AvO_DB" doc:name="AvO: fetch users">
-            <db:dynamic-query><![CDATA[SELECT 
+        <async doc:name="Async">
+            <db:select config-ref="AvO_DB" doc:name="AvO: fetch users">
+                <db:dynamic-query><![CDATA[SELECT 
     u.uid,
     p.pid,
     u.name naam,
@@ -632,25 +639,60 @@ WHERE
     #[flowVars.'timerange-clausule']
 GROUP BY u.uid
 order by u.created desc]]></db:dynamic-query>
-        </db:select>
-        <choice doc:name="Choice">
-            <when expression="#[flowVars.format == 'CSV']">
-                <dw:transform-message doc:name="To CSV">
-                    <dw:set-payload><![CDATA[%dw 1.0
+            </db:select>
+            <choice doc:name="Choice">
+                <when expression="#[flowVars.format == 'CSV']">
+                    <dw:transform-message doc:name="To CSV">
+                        <dw:set-payload><![CDATA[%dw 1.0
 %output application/csv
 ---
 payload]]></dw:set-payload>
-                </dw:transform-message>
-            </when>
-            <otherwise>
-                <dw:transform-message doc:name="To JSON">
-                    <dw:set-payload><![CDATA[%dw 1.0
+                    </dw:transform-message>
+                </when>
+                <otherwise>
+                    <dw:transform-message doc:name="To JSON">
+                        <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
 payload]]></dw:set-payload>
-                </dw:transform-message>
-            </otherwise>
-        </choice>
+                    </dw:transform-message>
+                </otherwise>
+            </choice>
+            <set-variable variableName="filename" value="avo-users-#[server.dateTime.format(&quot;yyyy_MM_dd__HH_mm_ss&quot;)].#[flowVars.format]" doc:name="Set filename"/>
+            <set-payload value="inhoud" doc:name="Set Payload"/>
+            <ftp:outbound-endpoint host="${avo.export.host}" port="${avo.export.port}" path="${avo.export.basepath}" user="${avo.export.user}" password="${avo.export.password}" outputPattern="#[flowVars.filename]" responseTimeout="10000" doc:name="FTP"/>
+            <choice doc:name="Send a slack notification?">
+                <when expression="#[flowVars.slack != null &amp;&amp; !flowVars.slack.equals(&quot;&quot;)]">
+                    <http:request config-ref="Slack" path="/chat.postMessage" method="POST" doc:name="Post to slack">
+                        <http:request-builder>
+                            <http:query-param paramName="token" value="${slack.token}"/>
+                            <http:query-param paramName="as_user" value="false"/>
+                            <http:query-param paramName="username" value="${slack.username}"/>
+                            <http:query-param paramName="channel" value="#[flowVars.slack]"/>
+                            <http:query-param paramName="text" value="Your user export is ready at #['${avo.export.basepath}']/#[flowVars.filename]"/>
+                            <http:header headerName="Content-Type" value="application/json"/>
+                        </http:request-builder>
+                    </http:request>
+                    <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+                </when>
+                <otherwise>
+                    <logger message="Did not have to send using slack" level="INFO" doc:name="Logger"/>
+                </otherwise>
+            </choice>
+            <choice doc:name="Send an email notification?">
+                <when expression="#[flowVars.email != null &amp;&amp; !flowVars.email.equals(&quot;&quot;)]">
+                    <set-payload value="Your user export is ready at #['${avo.export.basepath}']/#[flowVars.filename]" doc:name="Set Payload"/>
+                    <smtp:outbound-endpoint host="${smtp.host}" port="${smtp.port}" user="${smtp.username}" password="${smtp.password}" connector-ref="gmailconfig" to="#[flowVars.email]" subject="Your users export is ready" responseTimeout="10000" doc:name="SMTP"/>
+                </when>
+                <otherwise>
+                    <logger message="Did not have to send using slack" level="INFO" doc:name="Copy_of_Logger"/>
+                </otherwise>
+            </choice>
+        </async>
+        <set-payload value="{
+	&quot;outcome&quot;: &quot;OK&quot;,
+	&quot;message&quot;: &quot;Export was successfully started&quot;
+}" doc:name="Set Payload"/>
        	<logger message="Done /api/avo/users" level="INFO" doc:name="Done"/>
     </flow>
     <flow name="AvO1">
