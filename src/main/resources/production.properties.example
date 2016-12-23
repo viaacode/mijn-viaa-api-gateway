@@ -51,3 +51,6 @@ smtp.host=
 smtp.port=
 smtp.username=
 smtp.password=
+
+proxy.host=proxy
+proxy.port=80

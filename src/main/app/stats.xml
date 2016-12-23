@@ -41,7 +41,9 @@ http://www.mulesoft.org/schema/mule/smtps http://www.mulesoft.org/schema/mule/sm
         <managed-store storeName="avo_users_count" maxEntries="1" entryTTL="-1" expirationInterval="600000"/>
     </ee:object-store-caching-strategy>
     <http:request-config name="ldap2mam_http" host="${ldap2mam.host}" port="${ldap2mam.port}" basePath="/" responseTimeout="30000" doc:name="HTTP Request Configuration"/>
-    <http:request-config name="Slack" protocol="HTTPS" host="${slack.host}" port="${slack.port}" basePath="${slack.baseurl}" doc:name="HTTP Request Configuration"/>
+    <http:request-config name="Slack" protocol="HTTPS" host="${slack.host}" port="${slack.port}" basePath="${slack.baseurl}" doc:name="HTTP Request Configuration">
+        <http:proxy host="${proxy.host}" port="${proxy.port}"/>
+    </http:request-config>
     <smtp:gmail-connector name="gmailconfig" doc:name="Gmail"/>
     <flow name="GlobalStats" >
         <http:listener config-ref="HTTP_Listener_Configuration" path="/api/report/global" doc:name="/api/report/global?cp={c}" allowedMethods="GET"/>
@@ -659,7 +661,6 @@ payload]]></dw:set-payload>
                 </otherwise>
             </choice>
             <set-variable variableName="filename" value="avo-users-#[server.dateTime.format(&quot;yyyy_MM_dd__HH_mm_ss&quot;)].#[flowVars.format]" doc:name="Set filename"/>
-            <set-payload value="inhoud" doc:name="Set Payload"/>
             <ftp:outbound-endpoint host="${avo.export.host}" port="${avo.export.port}" path="${avo.export.basepath}" user="${avo.export.user}" password="${avo.export.password}" outputPattern="#[flowVars.filename]" responseTimeout="10000" doc:name="FTP"/>
             <choice doc:name="Send a slack notification?">
                 <when expression="#[flowVars.slack != null &amp;&amp; !flowVars.slack.equals(&quot;&quot;)]">
@@ -688,12 +689,12 @@ payload]]></dw:set-payload>
                     <logger message="Did not have to send using slack" level="INFO" doc:name="Copy_of_Logger"/>
                 </otherwise>
             </choice>
+            <logger message="Done /api/avo/users" level="INFO" doc:name="Done"/>
         </async>
         <set-payload value="{
 	&quot;outcome&quot;: &quot;OK&quot;,
 	&quot;message&quot;: &quot;Export was successfully started&quot;
 }" doc:name="Set Payload"/>
-       	<logger message="Done /api/avo/users" level="INFO" doc:name="Done"/>
     </flow>
     <flow name="AvO1">
         <http:listener config-ref="HTTP_Listener_Configuration" path="/api/avo/users/count" allowedMethods="GET" doc:name="/api/avo/users/count"/>
