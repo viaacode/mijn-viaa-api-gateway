@@ -1,3 +1,5 @@
+api.port=
+
 mam.db.host=
 mam.db.port=
 mam.db.username=
@@ -22,6 +24,12 @@ avo.database=
 avo.user=
 avo.password=
 
+avo.export.host=
+avo.export.port=
+avo.export.user=
+avo.export.password=
+avo.export.basepath=
+
 ldap2mam.host=
 ldap2mam.port=
 
@@ -30,3 +38,19 @@ borndigital.db.port=
 borndigital.db.username=
 borndigital.db.password=
 borndigital.db.database=
+
+# SLACK configuration
+slack.host=
+slack.port=
+slack.baseurl=
+slack.token=
+slack.username=
+
+# SMTP Configuration
+smtp.host=
+smtp.port=
+smtp.username=
+smtp.password=
+
+proxy.host=proxy
+proxy.port=80
