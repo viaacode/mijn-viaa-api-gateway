@@ -38,7 +38,7 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
     <ee:object-store-caching-strategy name="Caching_AvO_Users_count" keyGenerationExpression="#[flowVars.'timerange-clausule']" doc:name="Caching Strategy">
         <managed-store storeName="avo_users_count" maxEntries="1" entryTTL="-1" expirationInterval="600000"/>
     </ee:object-store-caching-strategy>
-    <http:request-config name="ldap2mam_http" host="${ldap2mam.host}" port="${ldap2mam.port}" basePath="/" responseTimeout="30000" doc:name="HTTP Request Configuration"/>
+    <http:request-config name="ldap2mam_http" host="${ldap2mam.host}" port="${ldap2mam.port}" basePath="/" responseTimeout="30000" doc:name="HTTP Request Configuration" protocol="HTTP"/>
     <flow name="GlobalStats" >
         <http:listener config-ref="HTTP_Listener_Configuration" path="/api/report/global" doc:name="/api/report/global?cp={c}" allowedMethods="GET"/>
         <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.cp]" doc:name="Set cp_ldap (LDAP ID)"/>
@@ -409,8 +409,7 @@ ORDER  BY 1;]]></db:parameterized-query>
         <logger message="Done" level="INFO" doc:name="Done"/>
     </flow>
     <flow name="AMS">
-        <http:listener config-ref="HTTP_Listener_Configuration" path="/api/report/ams" allowedMethods="GET" doc:name="/api/report/ams?org={o}&amp;gran={g}
-"/>
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/api/report/ams" allowedMethods="GET" doc:name="/api/report/ams?cp={c}&amp;gran={g} "/>
         <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.cp]" doc:name="Set cp_ldap (LDAP ID)"/>
         <choice doc:name="cp_ldap is empty?">
             <when expression="#[flowVars.cp_ldap!=null &amp;&amp; flowVars.cp_ldap!='null' &amp;&amp; flowVars.cp_ldap != 'OR-w66976m']">
@@ -608,7 +607,6 @@ FROM
     users u
         LEFT JOIN
     users_roles ur ON ur.uid = u.uid
-    AND u.created >= 1473897600
         JOIN
     role r ON r.rid = ur.rid
         LEFT JOIN
@@ -774,6 +772,27 @@ GROUP BY media_id
 %output application/json
 ---
 payload[0]]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="/api/vrt/{id}">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/api/vrt/*" allowedMethods="GET" doc:name="/api/vrt/id (pid or media_id)"/>
+        <set-variable variableName="id" value="#[message.inboundProperties.'http.request.uri'.substring(message.inboundProperties.'http.request.uri'.lastIndexOf('/')+1)]" doc:name="Set id (pid or media_id)"/>
+        <logger message="Received request for /api/vrt/ #[flowVars.id]" level="INFO" doc:name="Logger"/>
+        <db:select config-ref="Borndigital" doc:name="Retrieve info">
+            <db:parameterized-query><![CDATA[select media_id, pid, status
+from vrt_message_buffer
+where (media_id = #[flowVars.id] or pid = #[flowVars.id]) and event_name IN ('audioEssenceAvailableEvent', 'videoEssenceAvailableEvent')
+limit 1;]]></db:parameterized-query>
+        </db:select>
+        <dw:transform-message doc:name="Return pid, media_id and status">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"pid": payload[0].pid,
+	"media_id": payload[0].media_id,
+	"status": payload[0].status
+}]]></dw:set-payload>
         </dw:transform-message>
     </flow>
 </mule>
