@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:objectstore="http://www.mulesoft.org/schema/mule/objectstore" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/objectstore http://www.mulesoft.org/schema/mule/objectstore/current/mule-objectstore.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    <flow name="get:asset/count/{type}">
+        <http:listener config-ref="api-httpListenerConfig" path="assets/count/{type}" allowedMethods="get" doc:name="HTTP"/>
+        <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
+        <set-variable variableName="type" value="#[message.inboundProperties.'http.uri.params'.type]" doc:name="var type"/>
+        <set-variable variableName="link" value="/asset?cql=asset.asset_type%3D%22#[flowVars.type]%22" doc:name="var link"/>
+        <set-variable variableName="path" value="#['api/assets/count/' + flowVars.type]" doc:name="var path"/>
+        <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
+        <dw:transform-message doc:name="output">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": flowVars["path"] ,
+        "description": "Het meest recente van een bepaalde type",
+        "success": "All went well, and (usually) some data was returned",
+        "sources": ["Mediamosa"]
+	},
+	"data": {
+		(flowVars['type'] as :string) : payload.response.header.item_count_total
+	}
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-variable variableName="fail" value="#[exception.cause.message]" doc:name="var fail"/>
+            <dw:transform-message doc:name="fail message">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": flowVars['path'] ,
+        "fail":flowVars['fail'],
+        "sources": ["avo"]
+	}
+}]]></dw:set-payload>
+            </dw:transform-message>
+        </catch-exception-strategy>
+
+
+
+    </flow>
+    <flow name="get:/assets/mostrecent/{type}">
+        <http:listener config-ref="api-httpListenerConfig" path="/assets/mostrecent/{type}" allowedMethods="get" doc:name="HTTP"/>
+        <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
+        <set-variable variableName="type" value="#[message.inboundProperties.'http.uri.params'.type]" doc:name="var type"/>
+        <set-variable variableName="link" value="/asset?order_by=videotimestamp&amp;limit=1&amp;order_direction=DESC&amp;cql=asset.asset_type%3D%22#[flowVars.type]%22" doc:name="var link"/>
+        <set-variable variableName="path" value="#['api/assets/mostrecent/' + flowVars.type]" doc:name="var path"/>
+        <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
+        <dw:transform-message doc:name="var count">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/xml
+---
+payload]]></dw:set-payload>
+            <dw:set-variable variableName="count"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.response.header.item_count]]></dw:set-variable>
+        </dw:transform-message>
+        <choice doc:name="Choice_assets_found">
+            <when expression="#[flowVars.count &gt; 0]">
+                <dw:transform-message doc:name="output">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": flowVars["path"] ,
+        "description": "Het meest recente assets van een bepaalde type",
+        "success": "All went well, and (usually) some data was returned",
+        "sources": ["Mediamosa"]
+	},
+	"data": {
+		(flowVars['type'] as :string) : payload.response.items
+	}
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <dw:transform-message doc:name="fail message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path":flowVars['path'],
+        "fail": "No results try:'video','audio','collections','thema'",
+        "sources": ["mediamosa"]
+	}
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-variable variableName="fail" value="#[exception.cause.message]" doc:name="var fail"/>
+            <dw:transform-message doc:name="fail message">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": flowVars['path'] ,
+        "fail":flowVars['fail'],
+        "sources": ["avo"]
+	}
+}]]></dw:set-payload>
+            </dw:transform-message>
+        </catch-exception-strategy>
+
+
+
+    </flow>
+    <flow name="get:/assets/mostviewed">
+        <http:listener config-ref="api-httpListenerConfig" path="/assets/mostviewed/{type}" allowedMethods="get" doc:name="HTTP"/>
+        <set-variable variableName="type" value="#[message.inboundProperties.'http.uri.params'.type]" doc:name="var type"/>
+        <set-variable variableName="link" value="/asset?limit=1&amp;cql=asset.asset_type%3D%22#[flowVars.type]%22 AND sortBy viewed/sort.ascending" doc:name="var link"/>
+        <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
+    </flow>
+    <flow name="get:/assets/mostfavorites">
+        <http:listener config-ref="api-httpListenerConfig" path="/assets/mostfav/{type}" allowedMethods="get" doc:name="HTTP"/>
+        <set-variable variableName="type" value="#[message.inboundProperties.'http.uri.params'.type]" doc:name="var type"/>
+        <set-variable variableName="link" value="/statistics/popularmediafiles" doc:name="var link"/>
+        <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
+    </flow>
+    <flow name="get:/assets/mostfav">
+        <http:listener config-ref="api-httpListenerConfig" path="/assets/mostfavorites/{type}" allowedMethods="get" doc:name="HTTP"/>
+        <set-variable variableName="type" value="#[message.inboundProperties.'http.uri.params'.type]" doc:name="var type"/>
+        <set-variable variableName="link" value="/asset?order_by=videotimestamp&amp;limit=1&amp;order_direction=DESC&amp;cql=asset.asset_type%3D%22#[flowVars.type]%22" doc:name="var link"/>
+        <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
+        <dw:transform-message doc:name="output">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": "assets/mostrecent/{type}" ,
+        "description": "Het aantal assets van een bepaalde type",
+        "status": "success",
+        "sources": ["Mediamosa"]
+	},
+	"data": {
+		(flowVars['type'] as :string) : payload
+	}
+}]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+
+</mule>

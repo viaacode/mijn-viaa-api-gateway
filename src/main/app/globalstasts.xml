@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+
+    <ee:object-store-caching-strategy name="Caching_global" keyGenerationExpression="#[flowVars.cp_ldap+'_global']" doc:name="Caching Strategy">
+        <in-memory-store name="global" maxEntries="1000" entryTTL="-1" expirationInterval="600000"/>
+    </ee:object-store-caching-strategy>
+    
+
+ <flow name="GlobalStats" >
+        <http:listener config-ref="api-httpListenerConfig" path="/report/global" doc:name="/api/report/global?cp={c}" allowedMethods="GET"/>
+        <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.cp]" doc:name="Set cp_ldap (LDAP ID)"/>
+        <choice doc:name="cp_ldap is empty or is VIAA?">
+            <when expression="#[flowVars.cp_ldap!=null &amp;&amp; flowVars.cp_ldap!='null'&amp;&amp;flowVars.cp_ldap!='OR-w66976m']">
+                <flow-ref name="ldap2mam" doc:name="Flow Reference"/>
+                <set-variable variableName="where_clausule_mam_content_provider" value="#['AND content_provider LIKE \'' + flowVars.cp_mam + '\'']" doc:name="Set where_clausule_mam_content_provider"/>
+                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}#[' WHERE noid_id LIKE \'' + flowVars.cp_ldap + '\'']" doc:name="Set query_ams_organization_ids"/>
+                <logger message="Retrieving global stats: #[flowVars.cp_ldap]" level="INFO" doc:name="Retrieving global stats for an cp"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="where_clausule_mam_content_provider" value="#['']" doc:name="Set where_clausule_mam_content_provider as empty"/>
+                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}" doc:name="Set query_ams_organization_ids to every organization"/>
+            </otherwise>
+        </choice>
+        <ee:cache cachingStrategy-ref="Caching_global" doc:name="Cache">
+            <scatter-gather doc:name="Scatter-Gather">
+                <threading-profile poolExhaustedAction="RUN"/>
+                <processor-chain>
+                    <expression-component doc:name="Sleep 20"><![CDATA[Thread.sleep(20);]]></expression-component>
+                    <logger message="Start AMS registered" level="INFO" doc:name="Logger"/>
+                    <db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount registered">
+                        <db:dynamic-query><![CDATA[SELECT count(1) total_registered,
+sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
+sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
+sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
+sum(case when carrier_type_id = 4 then 1 else 0 end) film_registered
+FROM ${ams.db.carrier}
+WHERE organization_id IN (
+	#[flowVars.query_ams_organization_ids]
+)]]></db:dynamic-query>
+                    </db:select>
+                    <logger message="AMS registered done" level="INFO" doc:name="Logger"/>
+                </processor-chain>
+                <processor-chain>
+                    <logger message="start MAM" level="INFO" doc:name="Logger"/>
+                    <db:select config-ref="Mediahaven_monitoring" doc:name="MAM: Fetch amount and bytes for every mime_type">
+                        <db:dynamic-query><![CDATA[SELECT case when mime_type LIKE '%video%' then 'video' else mime_type end mime_type, 
+count(case when status = 'OK' then 1 end) archived_amount_ok, 
+sum(case when status = 'OK' and carrier_size is not null then carrier_size else 0 end) archived_bytes_ok,
+count(case when status = 'NOK' then 1 end) archived_amount_nok, 
+sum(case when status = 'NOK' and carrier_size is not null then carrier_size else 0 end) archived_bytes_nok
+FROM ${mam.db.datatable.pids}
+WHERE status IN ('OK', 'NOK') #[flowVars.where_clausule_mam_content_provider]
+GROUP BY case when mime_type LIKE '%video%' then 'video' else mime_type end
+ORDER BY archived_amount_ok desc]]></db:dynamic-query>
+                    </db:select>
+                    <flow-ref name="CalcAndAddMAMTotal" doc:name="CalcAndAddMAMTotal"/>
+                    <logger message="MAM done" level="INFO" doc:name="Logger"/>
+                </processor-chain>
+                <processor-chain>
+                    <expression-component doc:name="Sleep 40"><![CDATA[Thread.sleep(40);]]></expression-component>
+                    <logger message="Start AMS digitised" level="INFO" doc:name="Logger"/>
+                    <db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount digitised for audio, video and film">
+                        <db:dynamic-query><![CDATA[select sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 1 then 1 else 0 end) audio_registered_and_not_digitised,
+sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 2 then 1 else 0 end) video_registered_and_not_digitised,
+sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 4 then 1 else 0 end) film_registered_and_not_digitised,
+sum(case when e.event_outcome = 1 and c.carrier_type_id = 1 then 1 else 0 end) audio_digitised_ok,
+sum(case when e.event_outcome = 0 and c.carrier_type_id = 1 then 1 else 0 end) audio_digitised_nok,
+sum(case when e.event_outcome = 1 and c.carrier_type_id = 2 then 1 else 0 end) video_digitised_ok,
+sum(case when e.event_outcome = 0 and c.carrier_type_id = 2 then 1 else 0 end) video_digitised_nok,
+sum(case when e.event_outcome = 1 and c.carrier_type_id = 4 then 1 else 0 end) film_digitised_ok,
+sum(case when e.event_outcome = 0 and c.carrier_type_id = 4 then 1 else 0 end) film_digitised_nok
+from ams.carrier c
+	LEFT JOIN ams.events e ON c.id = e.carrier_id
+		and e.id = 
+			(select max(id) from ams.events x where x.carrier_id = c.id and event_lookup_id = 5)
+WHERE carrier_id IN (
+											select id
+											from ${ams.db.carrier}
+											where organization_id IN (
+												#[flowVars.query_ams_organization_ids]
+											)
+										)]]></db:dynamic-query>
+                    </db:select>
+                    <logger message="AMS digitised av done" level="INFO" doc:name="Logger"/>
+                </processor-chain>
+                <processor-chain>
+                    <expression-component doc:name="Sleep 60"><![CDATA[Thread.sleep(60);]]></expression-component>
+                    <logger message="Start AMS digitised paper" level="INFO" doc:name="Logger"/>
+                    <db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount digitised for paper">
+                        <db:dynamic-query><![CDATA[select sum(case when e.event_outcome = 1 then 1 else 0 end) paper_digitised_ok,
+sum(case when e.event_outcome = 0 then 1 else 0 end) paper_digitised_nok
+from ${ams.db.paper_event} e
+where event_lookup_id = 5 and carrier_id IN (
+											select id
+											from ${ams.db.carrier}
+											where organization_id IN (
+												#[flowVars.query_ams_organization_ids]
+											)
+										)]]></db:dynamic-query>
+                    </db:select>
+                    <logger message="AMS digitised paper done" level="INFO" doc:name="Logger"/>
+                </processor-chain>
+                <processor-chain>
+                    <expression-component doc:name="Sleep 80"><![CDATA[Thread.sleep(80);]]></expression-component>
+                    <logger message="Start AMS status" level="INFO" doc:name="Logger"/>
+                    <db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch status registered/digitised for av">
+                        <db:dynamic-query><![CDATA[select sum(case when e.event_outcome = 1 then 1 else 0 end) paper_digitised_ok,
+sum(case when e.event_outcome = 0 then 1 else 0 end) paper_digitised_nok
+from ${ams.db.paper_event} e
+where event_lookup_id = 5 and carrier_id IN (
+											select id
+											from ${ams.db.carrier}
+											where organization_id IN (
+												#[flowVars.query_ams_organization_ids]
+											)
+										)]]></db:dynamic-query>
+                    </db:select>
+                    <logger message="AMS digitised paper done" level="INFO" doc:name="Logger"/>
+                </processor-chain>
+            </scatter-gather>
+            <dw:transform-message doc:name="Build nice JSON object">
+                <dw:set-payload><![CDATA[%dw 1.0
+%function zero(n) n when n!=null otherwise 0
+%output application/json
+---
+{
+	"registered": {
+		"video": zero(payload[0][0].video_registered),
+		"audio": zero(payload[0][0].audio_registered),
+		"film": zero(payload[0][0].film_registered),	
+		"paper": zero(payload[0][0].paper_registered),
+		"total": zero(payload[0][0].total_registered)
+	},
+	"archived": { (payload[1] map (
+			{
+				($.mime_type): {
+					"amount": {
+						"ok": zero($.archived_amount_ok),
+						"nok": zero($.archived_amount_nok)
+					},
+					"bytes": {
+						"ok": zero($.archived_bytes_ok),
+						"nok": zero($.archived_bytes_nok)
+					}
+				}
+			} when $.mime_type != null 
+			otherwise {
+				"unknown": {
+					"amount": {
+						"ok": zero($.archived_amount_ok),
+						"nok": zero($.archived_amount_nok)
+					},
+					"bytes": {
+						"ok": zero($.archived_bytes_ok),
+						"nok": zero($.archived_bytes_nok)
+					}
+				}
+			} 
+			))
+	},
+	"digitised": {
+		"video": {
+			"ok": zero(payload[2][0].video_digitised_ok),
+			"nok": zero(payload[2][0].video_digitised_nok)
+		},
+		"audio": {
+			"ok": zero(payload[2][0].audio_digitised_ok),
+			"nok": zero(payload[2][0].audio_digitised_nok)
+		},
+		"film": {
+			"ok": zero(payload[2][0].film_digitised_ok),
+			"nok": zero(payload[2][0].film_digitised_nok)
+		},
+		"paper": {
+			"ok": zero(payload[3][0].paper_digitised_ok),
+			"nok": zero(payload[3][0].paper_digitised_nok)
+		},
+		"total": {
+			"ok": zero(payload[2][0].video_digitised_ok) + zero(payload[2][0].audio_digitised_ok) + zero(payload[2][0].film_digitised_ok) + zero(payload[3][0].paper_digitised_ok),
+			"nok": zero(payload[2][0].video_digitised_nok) + zero(payload[2][0].audio_digitised_nok) + zero(payload[2][0].film_digitised_nok) + zero(payload[3][0].paper_digitised_nok)
+		}
+	}	
+}]]></dw:set-payload>
+            </dw:transform-message>
+            <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+        </ee:cache>
+        <logger level="INFO" doc:name="Logger"/>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <logger message="Something went wrong" level="INFO" doc:name="Logger"/>
+        </catch-exception-strategy>
+    </flow>
+     
+
+</mule>

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+
+<db:generic-config name="Borndigital" url="jdbc:postgresql://${borndigital.db.host}:${borndigital.db.port}/${borndigital.db.database}?password=${borndigital.db.password}&amp;user=${borndigital.db.username}" driverClassName="org.postgresql.Driver" doc:name="Borndigital DB"> 
+        <reconnect-forever></reconnect-forever>  
+    </db:generic-config>
+
+    
+<flow name="/vrt/delay">
+        <http:listener config-ref="api-httpListenerConfig" path="/vrt/delay" doc:name="/api/vrt/delay" allowedMethods="GET"/>
+        <db:select config-ref="Borndigital" doc:name="Retrieve ">
+            <db:parameterized-query><![CDATA[select to_timestamp((sum(extract(epoch from start)) / count(1))) gemiddelde_starttijd, sum(duur)/count(1) gemiddelde_duur
+from (
+select media_id, min(timestamp) as "start", max(timestamp) eind, max(timestamp) - min(timestamp) duur
+from vrt_message_proceslog
+where media_id IN (
+	select p.media_id
+	from vrt_message_proceslog p
+		join vrt_message_buffer b on b.media_id = p.media_id and b.event_name IN ('audioEssenceAvailableEvent', 'videoEssenceAvailableEvent')
+	where origin IN ('vrt', 'manual') and p.comment = 'status: delivered => awaitingMetadataUpdate24hr'
+	order by p.timestamp desc
+	limit 100
+) AND event_name IN ('audioEssenceAvailableEvent', 'videoEssenceAvailableEvent')
+AND comment IN ('status: delivered => awaitingMetadataUpdate24hr', 'status: ready_for_processing => processing')
+GROUP BY media_id
+) a]]></db:parameterized-query>
+        </db:select>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload[0]]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+<flow name="/api/vrt/{id}">
+       <http:listener config-ref="api-httpListenerConfig" path="/vrt/*" allowedMethods="GET" doc:name="/api/vrt/id (pid or media_id)"/>
+       <set-variable variableName="id" value="#[message.inboundProperties.'http.request.uri'.substring(message.inboundProperties.'http.request.uri'.lastIndexOf('/')+1)]" doc:name="Set id (pid or media_id)"/>
+       <logger message="Received request for /api/vrt/ #[flowVars.id]" level="INFO" doc:name="Logger"/>
+       <db:select config-ref="Borndigital" doc:name="Retrieve info">
+           <db:parameterized-query><![CDATA[select media_id, pid, status
+from vrt_message_buffer
+where (media_id = #[flowVars.id] or pid = #[flowVars.id]) and event_name IN ('audioEssenceAvailableEvent', 'videoEssenceAvailableEvent')
+limit 1;]]></db:parameterized-query>
+       </db:select>
+       <dw:transform-message doc:name="Return pid, media_id and status">
+           <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+    "pid": payload[0].pid,
+    "media_id": payload[0].media_id,
+    "status": payload[0].status
+}]]></dw:set-payload>
+       </dw:transform-message>
+   </flow>
+
+
+</mule>

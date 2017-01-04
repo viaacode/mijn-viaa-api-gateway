@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:schedulers="http://www.mulesoft.org/schema/mule/schedulers" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:objectstore="http://www.mulesoft.org/schema/mule/objectstore"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/objectstore http://www.mulesoft.org/schema/mule/objectstore/current/mule-objectstore.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/schedulers http://www.mulesoft.org/schema/mule/schedulers/current/mule-schedulers.xsd">
+    
+	<sub-flow name="ref:getMilli">
+        <set-variable variableName="getMilli" value="#[function:systime]" doc:name="getMilli"/>
+    </sub-flow>
+    
+    <sub-flow name="datarange">
+        <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
+        <set-variable variableName="query-from" value="#[(message.inboundProperties.'http.query.params'.from == empty)? '19980101' : message.inboundProperties.'http.query.params'.from]" doc:name="var from"/>
+        <set-variable variableName="today" value="#[server.dateTime]" doc:name="var today"/>
+        <set-variable variableName="query-until" value="#[(message.inboundProperties.'http.query.params'.until == empty) ? flowVars.today : message.inboundProperties.'http.query.params'.until]" doc:name="var until"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:input-variable variableName="query-from"/>
+            <dw:set-variable variableName="from"><![CDATA[%dw 1.0
+%output application/java
+---
+(flowVars['query-from'] as :date {format: "yyyyMMdd"}) 
+as :string {format: "yyyy-MM-dd 00:00:00"}]]></dw:set-variable>
+            <dw:set-variable variableName="until"><![CDATA[%dw 1.0
+%output application/java
+---
+(flowVars['query-until'] as :date {format: "yyyyMMdd"}) 
+as :string {format: "yyyy-MM-dd 00:00:00"}]]></dw:set-variable>
+        </dw:transform-message>
+    </sub-flow>
+
+    <sub-flow name="ref:http-call">
+        <enricher source="#[payload[1]]" target="#[flowVars.cookie]" doc:name="Message Enricher">
+            <objectstore:retrieve config-ref="cookiestore" key="cookie" doc:name="cookie store"/>
+        </enricher>
+        <http:request config-ref="HTTP_MM_Request" path="#[flowVars.Link]" method="GET" doc:name="HTTP">
+            <http:request-builder>
+                <http:header headerName="cookie" value="#[flowVars.cookie]"/>
+            </http:request-builder>
+        </http:request>
+
+    </sub-flow>
+
+	 <flow name="get:/connect">
+        <http:listener config-ref="api-httpListenerConfig" path="/connect" allowedMethods="get" doc:name="HTTP"/>
+        <flow-ref name="ref:mmConnect" doc:name="ref:mmConnect"/>
+
+
+    </flow>
+    <sub-flow name="ref:mmConnect">
+        <http:request config-ref="HTTP_MM_Request" path="/login" method="POST" doc:name="HTTP">
+            <http:request-builder>
+                <http:query-param paramName="dbus" value="AUTH DBUS_COOKIE_SHA1 ${mm.name}"/>
+            </http:request-builder>
+        </http:request>
+        <set-variable variableName="cookie" value="#[message.inboundProperties['set-cookie']]" doc:name="var cookie"/>
+        <logger message="#[flowVars.cookie]" level="INFO" doc:name="Logger"/>
+        <objectstore:store config-ref="cookiestore" key="cookie" value-ref="#[flowVars.cookie]" overwrite="true" doc:name="cookie store"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:input-payload doc:sample="sample_data\empty.xml"/>
+            <dw:set-variable variableName="vpx-code"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.response.items.item.dbus[11 .. 42]]]></dw:set-variable>
+        </dw:transform-message>
+        <set-variable variableName="random" value="#[function:uuid]" doc:name="var random"/>
+        <set-variable variableName="secret" value="${mm.secret}" doc:name="var secret"/>
+        <set-variable variableName="sha" value="#[org.apache.commons.codec.digest.DigestUtils.sha1Hex(flowVars.'vpx-code' + ':' + flowVars.random+':' + flowVars.secret)]" doc:name="var sha"/>
+        <http:request config-ref="HTTP_MM_Request" path="/login" method="POST" doc:name="HTTP">
+            <http:request-builder>
+                <http:query-param paramName="dbus" value="#['DATA '+flowVars.random+' ' + flowVars.sha]"/>
+                <http:header headerName="Cookie" value="#[flowVars.cookie[1]]"/>
+                <http:header headerName="Cookie" value="#[flowVars.cookie[0]]"/>
+            </http:request-builder>
+        </http:request>
+    </sub-flow>
+    <flow name="mediamosaPoll">
+        <poll doc:name="Poll">
+            <schedulers:cron-scheduler expression="0 0 12 1/6 * ? *"/>
+            <flow-ref name="ref:mmConnect" doc:name="ref:mmConnect"/>
+        </poll>
+        <logger message="connected" level="INFO" doc:name="Logger"/>
+    </flow>
+
+  
+    
+</mule>

@@ -1,0 +1,504 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns:oauth2="http://www.mulesoft.org/schema/mule/oauth2" xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:objectstore="http://www.mulesoft.org/schema/mule/objectstore"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/objectstore http://www.mulesoft.org/schema/mule/objectstore/current/mule-objectstore.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/apikit http://www.mulesoft.org/schema/mule/apikit/current/mule-apikit.xsd
+http://www.mulesoft.org/schema/mule/oauth2 http://www.mulesoft.org/schema/mule/oauth2/current/mule-oauth2.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd">
+
+ 	
+    <flow name="get:/users/count:api-config">
+        <http:listener config-ref="api-httpListenerConfig" path="/users/count" allowedMethods="get" doc:name="HTTP"/>
+        <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
+        <set-variable variableName="path" value="#['api/users/count']" doc:name="var path"/>
+    	<db:select config-ref="MySQL_Configuration" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT
+				    r.name as name, COUNT(DISTINCT (u.uid)) as count, u.status
+				FROM
+				    users u
+				        LEFT JOIN
+				    users_roles ur ON ur.uid = u.uid
+				        JOIN
+				    role r ON r.rid = ur.rid
+				GROUP BY ur.rid
+				order by count DESC;]]></db:parameterized-query>
+        </db:select>
+        <set-variable variableName="total" value="#[0]" doc:name="var total"/>
+        <foreach collection="#[payload]" doc:name="For Each">
+            <set-variable variableName="total" value="#[flowVars.total + payload.count]" doc:name="var total"/>
+        </foreach>
+        <dw:transform-message doc:name="output">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header":{
+		"timestamp": flowVars['getMilli'],
+		"path": flowVars['path'],
+        "description": "Aantal gebruikers per rol in AvO.",
+        "success":"All went well, and (usually) some data was returned.",
+        "result_count": flowVars['total'],
+        "sources": ["avo"]
+	},
+	"data": 
+	"roles": {(payload map  {
+		($.name as :string) : $.count
+	})}
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-variable variableName="fail" value="#[exception.cause.message]" doc:name="var fail"/>
+            <dw:transform-message doc:name="fail message">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": flowVars['path'] ,
+        "status":{
+	        "fail":"There was a problem with the data submitted, or some pre-condition of the API call wasn't satisfied (e.g. date formatting is off)",
+    		"message":flowVars['fail']    	
+        },
+        "sources": ["avo"]
+	}
+}]]></dw:set-payload>
+            </dw:transform-message>
+        </catch-exception-strategy>
+
+    </flow>
+	<flow name="get:/users/active:api-config">
+        <http:listener config-ref="api-httpListenerConfig" path="users/count/active" allowedMethods="get" doc:name="HTTP"/>
+        <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
+        <set-variable variableName="path" value="#['api/users/count/active']" doc:name="var path"/>
+		<flow-ref name="datarange" doc:name="datarange"/>
+        <choice doc:name="Choice_check_date">
+            <when expression="#[flowVars.from &gt; flowVars.until]">
+                <flow-ref name="ref:fail" doc:name="ref:fail"/>
+            </when>
+            <otherwise>
+                <db:select config-ref="MySQL_Configuration" doc:name="Database">
+                    <db:parameterized-query><![CDATA[SELECT
+    ur.rid, r.name, COUNT(DISTINCT (u.uid)) as counter
+FROM
+    users u
+        JOIN
+    users_roles ur ON ur.uid = u.uid
+        JOIN
+    role r ON r.rid = ur.rid
+WHERE
+    FROM_UNIXTIME(u.access)>= #[flowVars.from]
+	And
+		FROM_UNIXTIME(u.access)<= #[flowVars.until]
+GROUP BY ur.rid
+ORDER BY ur.rid;]]></db:parameterized-query>
+
+                </db:select>
+                <set-variable variableName="total" value="#[0]" doc:name="var total"/>
+                <foreach doc:name="For Each">
+                    <set-variable variableName="total" value="#[flowVars.total +payload.counter]" doc:name="var total"/>
+                </foreach>
+                <dw:transform-message doc:name="output">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": flowVars['path'],
+        "description": "actieve gebruikers per rol",
+        "success":"All went well, and (usually) some data was returned.",
+        "from" : flowVars['from'],
+        "until": flowVars['until'],
+        "result_count": flowVars['total'],
+        "sources": ["google analytics"]
+	},
+	"data":
+		"roles": {(payload map {
+	    	($.name as :string) : $.counter
+				})
+			}
+		}
+			]]></dw:set-payload>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
+
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-variable variableName="fail" value="#[exception.cause.message]" doc:name="var fail"/>
+            <dw:transform-message doc:name="fail message">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": flowVars['path'] ,
+		"from" : flowVars['from'],
+        "until": flowVars['until'],
+        "status":{
+	        "fail":"There was a problem with the data submitted, or some pre-condition of the API call wasn't satisfied (e.g. date formatting is off)",
+    		"message":flowVars['fail']    	
+        },
+        "sources": ["avo"]
+	}
+}]]></dw:set-payload>
+            </dw:transform-message>
+        </catch-exception-strategy>
+
+    </flow>
+
+	<flow name="get:/users/count/conversions:api-config">
+        <http:listener config-ref="api-httpListenerConfig" path="/users/count/conversions" allowedMethods="get" doc:name="HTTP"/>
+        <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
+        <set-variable variableName="path" value="#['api/users/count/conversions']" doc:name="var path"/>
+        <set-variable variableName="query-from" value="#[(message.inboundProperties.'http.query.params'.from == empty)? '20050102' : message.inboundProperties.'http.query.params'.from]" doc:name="var from"/>
+        <set-variable variableName="today" value="#[server.dateTime]" doc:name="var today"/>
+        <set-variable variableName="query-until" value="#[(message.inboundProperties.'http.query.params'.until == empty) ? flowVars.today : message.inboundProperties.'http.query.params'.until]" doc:name="var until"/>
+        <dw:transform-message doc:name="Time">
+            <dw:input-variable variableName="query-from"/>
+            <dw:set-variable variableName="from"><![CDATA[%dw 1.0
+%output application/java
+---
+(flowVars['query-from'] as :date {format: "yyyyMMdd"}) 
+as :string {format: "yyyy-MM-dd"}]]></dw:set-variable>
+            <dw:set-variable variableName="until"><![CDATA[%dw 1.0
+%output application/java
+---
+(flowVars['query-until'] as :date {format: "yyyyMMdd"}) 
+as :string {format: "yyyy-MM-dd"}]]></dw:set-variable>
+        </dw:transform-message>
+
+        <choice doc:name="Choice_check_date">
+            <when expression="">
+                <flow-ref name="ref:fail" doc:name="ref:fail"/>
+
+            </when>
+
+            <otherwise>
+                <dw:transform-message doc:name="goals">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	"1":"Deelname Poster",
+	"2":"Registratie nieuw gebruiker"
+}]]></dw:set-payload>
+                </dw:transform-message>
+                <dw:transform-message doc:name="prep -google call">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+  "reportRequests":
+  [
+    {
+      "viewId": "ga:128760630",
+      "dateRanges": [{"startDate": flowVars["from"], "endDate": flowVars["until"]}],
+      "metrics": [
+      	{"expression": "ga:goal2Completions"},
+      	{"expression": "ga:goal2Starts"},
+      	{"expression": "ga:goal2ConversionRate"}
+      ]
+    }
+  ]
+}]]></dw:set-payload>
+                </dw:transform-message>
+                <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+                <http:request config-ref="HTTP_Request_Configuration" path="/reports:batchGet" method="POST" doc:name="HTTP google call"/>
+                <dw:transform-message doc:name="output">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": flowVars["path"],
+        "description": "Telling registraties binnen bepaalde periode.",
+        "success":"All went well, and (usually) some data was returned.",
+        "from" : flowVars['from'],
+        "until": flowVars['until'],
+        "sources": ["google analytics"]
+	},
+	"data": {
+		ratio: payload.reports[0].data.totals[0].values[2],
+		starts: payload.reports[0].data.totals[0].values[1],
+		complete: payload.reports[0].data.totals[0].values[0]
+		}
+}
+
+]]></dw:set-payload>
+                </dw:transform-message>
+
+
+            </otherwise>
+        </choice>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+            <dw:transform-message doc:name="Transform Message">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": flowVars['path'] ,
+		"from" : flowVars['from'],
+        "until": flowVars['until'],
+        "status":{
+	        "fail":"There was a problem with the data submitted, or some pre-condition of the API call wasn't satisfied (e.g. date formatting is off)",
+    		"message": payload.error.message   	
+        },
+        "sources": ["google analytics"]
+	}
+}]]></dw:set-payload>
+            </dw:transform-message>
+        </catch-exception-strategy>
+
+
+                
+    </flow>
+
+    <flow name="get:/users/count/registered:api-config">
+        <http:listener config-ref="api-httpListenerConfig" path="/users/count/registered" allowedMethods="get" doc:name="HTTP"/>
+        <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
+        <set-variable variableName="path" value="#['api/users/count/registered']" doc:name="var path"/>
+        <flow-ref name="datarange" doc:name="datarange"/>
+        <db:select config-ref="MySQL_Configuration" doc:name="Database">
+            <db:parameterized-query><![CDATA[Select
+	COUNT(DISTINCT (u.uid)) as registered
+From
+	users u
+WHERE
+		FROM_UNIXTIME(u.access)>= #[flowVars.from]
+	And
+		FROM_UNIXTIME(u.access)<= #[flowVars.until]]]></db:parameterized-query>
+        </db:select>
+        <dw:transform-message doc:name="output">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": "/users/count/registerd",
+        "description": "Telling registraties binnen bepaalde periode.",
+        "success":"All went well, and (usually) some data was returned.",
+        "from" : flowVars['from'],
+        "until": flowVars['until'],
+        "result_count": payload.registered,
+        "sources": ["avo"]
+	},
+	"data": {(payload)}
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-variable variableName="fail" value="#[exception.cause.message]" doc:name="var fail"/>
+            <dw:transform-message doc:name="fail message">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": flowVars['path'] ,
+		"from" : flowVars['from'],
+        "until": flowVars['until'],
+        "status":{
+	        "fail":"There was a problem with the data submitted, or some pre-condition of the API call wasn't satisfied (e.g. date formatting is off)",
+    		"message":flowVars['fail']    	
+        },
+        "sources": ["avo"]
+	}
+}]]></dw:set-payload>
+            </dw:transform-message>
+        </catch-exception-strategy>
+
+    </flow>
+    <flow name="get:/users/export:api-config">
+        <http:listener config-ref="api-httpListenerConfig" path="/users/export" allowedMethods="get" doc:name="HTTP"/>
+
+        <flow-ref name="datarange" doc:name="datarange"/>
+        <choice doc:name="Choice_check_date">
+            <when expression="">
+                <flow-ref name="ref:fail" doc:name="ref:datefail"/>
+            </when>
+            <otherwise>
+                <db:select config-ref="MySQL_Configuration" doc:name="Database">
+                    <db:parameterized-query><![CDATA[SELECT
+				    u.uid,
+				    p.pid,
+				    u.name naam,
+				    u.mail 'e-mail',
+				    u.status active,
+				    FROM_UNIXTIME(u.created) created,
+				    FROM_UNIXTIME(u.access) access,
+				    r.name rol,
+				    GROUP_CONCAT(rl.field_registratie_leraarkaart_value) lerarenkaart,
+				    GROUP_CONCAT(td.name
+				        SEPARATOR ', ') graad,
+				    GROUP_CONCAT(DISTINCT n.title
+				        SEPARATOR ', ') school,
+				    SUBSTRING_INDEX(m.sourceid1, '_', 1) vestigingsnummer
+				FROM
+				    users u
+				        LEFT JOIN
+				    users_roles ur ON ur.uid = u.uid
+				        JOIN
+				    role r ON r.rid = ur.rid
+				        LEFT JOIN
+				    profile p ON p.uid = u.uid
+				        LEFT JOIN
+				    field_data_field_registratie_leraarkaart rl ON rl.entity_id = p.pid
+				        LEFT JOIN
+				    field_data_field_leerjaar_ref lr ON lr.entity_id = p.pid
+				        LEFT JOIN
+				    taxonomy_term_data td ON td.tid = lr.field_leerjaar_ref_target_id
+				        LEFT JOIN
+				    field_data_field_registratie_scholen rs ON rs.entity_id = p.pid
+				        LEFT JOIN
+				    field_data_field_scholen fs ON fs.entity_id = p.pid
+				        LEFT JOIN
+				    node n ON n.nid = fs.field_scholen_target_id
+				        LEFT JOIN
+				    migrate_map_testbeeld_contentonderwijsinstellingen m ON m.destid1 = n.nid
+				WHERE
+				FROM_UNIXTIME(u.created) >= #[flowVars.from]
+				And
+				FROM_UNIXTIME(u.created) <= #[flowVars.until]
+				AND
+				(ur.rid = '31' or ur.rid= '51')
+				    
+			
+				GROUP BY u.uid
+				order by u.created desc;]]></db:parameterized-query>
+                </db:select>
+                <dw:transform-message doc:name="csv">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/csv
+---
+payload map {
+    uid: $.uid,
+    pid: $.pid,
+    email: $.email,
+    active: $.active,
+    rol: $.rol,
+    lerarenkaar: $.lerarenkaart,
+    graad: $.graad,
+    created: $.created,
+    access: $.access
+}]]></dw:set-payload>
+                </dw:transform-message>
+                <dw:transform-message doc:name="output">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": "/users/export/",
+        "description": "exporteert de data van docent en student binnen bepaalde periode.",
+        "success":"All went well, and (usually) some data was returned.",
+        "from" : flowVars['from'],
+        "until": flowVars['until'],
+        "result_count": sizeOf payload,
+        "sources": ["avo"]
+	},
+	"data": "exported"
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
+
+<!--         <file:outbound-endpoint  outputPattern="users-#[flowVars.getMilli].csv" responseTimeout="10000" doc:name="File"/> -->
+
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-variable variableName="path" value="#['api/users/count/registered']" doc:name="var path"/>
+            <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
+            <set-variable variableName="fail" value="#[exception.cause.message]" doc:name="var fail"/>
+            <dw:transform-message doc:name="fail message">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": flowVars['path'] ,
+		"from" : flowVars['from'],
+        "until": flowVars['until'],
+        "fail":flowVars['fail'],
+        "sources": ["avo"]
+	}
+}]]></dw:set-payload>
+            </dw:transform-message>
+        </catch-exception-strategy>
+
+    </flow>
+    <flow name="get:/users/roles:api-config">
+        <http:listener config-ref="api-httpListenerConfig" path="/users/roles" allowedMethods="get" doc:name="HTTP"/>
+        <set-variable variableName="path" value="#['api/users/count/registered']" doc:name="var path"/>
+        <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
+        <db:select config-ref="MySQL_Configuration" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT * FROM sb_testbeeldond.role as r order by r.rid;]]></db:parameterized-query>
+
+
+
+        </db:select>
+
+        <dw:transform-message doc:name="output">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": "/users/roles",
+        "description": "Mogelijke gebruikersrollen in AvO.",
+        "success":"All went well, and (usually) some data was returned.",
+        "result_count": sizeOf payload,
+        "sources": ["avo"]
+	},
+	"data": {(payload map {
+		($.rid as :string) : $.name
+	})}
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-variable variableName="fail" value="#[exception.cause.message]" doc:name="var fail"/>
+            <flow-ref name="ref:fail" doc:name="ref:datefail"/>
+
+        </catch-exception-strategy>
+
+    </flow>
+    <sub-flow name="ref:fail">
+        <dw:transform-message doc:name="fail message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": flowVars['path'] ,
+        "fail": flowVars['fail'],
+        "sources": ["avo"]
+	}
+}]]></dw:set-payload>
+        </dw:transform-message>
+    </sub-flow>
+   	
+</mule>

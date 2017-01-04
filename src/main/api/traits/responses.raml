@@ -1,0 +1,26 @@
+#%RAML 1.0 Trait
+
+responses: 
+  200:
+    body:
+      application/json:
+        example: |
+          <<example200>>
+  404:
+    body:
+      application/json:
+        example: |
+          {
+            "timestamp": "datetime",
+            "status": "fail",
+            "message": "There was a problem with the data submitted, or some pre-condition of the API call wasn't satisfied (e.g. date formatting is off)"
+          }
+  500:
+    body:
+      application/json:
+        example: |
+          {
+            "timestamp": "datetime",
+            "status": "error",
+            "message": " An error occurred in processing the request, i.e. an exception was thrown (e.g. timeout, no db response or error, etc.)"
+          }

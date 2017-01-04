@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" version="EE-3.7.4"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd 
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+
+
+<db:mysql-config name="AMS_MySQL" host="${ams.db.host}" port="${ams.db.port}" user="${ams.db.username}" password="${ams.db.password}" database="${ams.db.database}" doc:name="MySQL Configuration">
+        <reconnect-forever/>
+    </db:mysql-config>
+<ee:object-store-caching-strategy name="Caching_AMS" keyGenerationExpression="#[flowVars.cp_ldap+'_ams'+'_'+flowVars.granularity]" doc:name="Caching Strategy">
+        <in-memory-store name="ams" maxEntries="1000" entryTTL="-1" expirationInterval="600000"/>
+    </ee:object-store-caching-strategy>
+    
+
+    <flow name="AMS">
+        <http:listener config-ref="api-httpListenerConfig" path="report/ams" allowedMethods="GET" doc:name="/api/report/ams?org={o}&amp;gran={g}
+"/>
+        <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.cp]" doc:name="Set cp_ldap (LDAP ID)"/>
+        <choice doc:name="cp_ldap is empty?">
+            <when expression="#[flowVars.cp_ldap!=null &amp;&amp; flowVars.cp_ldap!='null' &amp;&amp; flowVars.cp_ldap != 'OR-w66976m']">
+                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}#[' WHERE noid_id LIKE \'' + flowVars.cp_ldap + '\'']" doc:name="Set query_ams_organization_ids"/>
+                <logger message="Retrieving global stats: #[flowVars.cp_ldap]" level="INFO" doc:name="Retrieving global stats for an cp"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}" doc:name="Set query_ams_organization_ids to every organization"/>
+            </otherwise>
+        </choice>
+        <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'last-day':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
+        <ee:cache cachingStrategy-ref="Caching_AMS" doc:name="Cache">
+            <choice doc:name="Last-day, last-week, last-month, last-year or all-time?">
+            	<when expression="#[flowVars.granularity.equals('all-time')]">
+                    <logger message="all-time = no start and end" level="INFO" doc:name="all-time = no start and end"/>
+                    <db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount registered">
+                        <db:dynamic-query><![CDATA[select extract(year_month from created_on), unix_timestamp(min(created_on)) x, count(1) total_registered,
+sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
+sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
+sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
+sum(case when carrier_type_id = 4 then 1 else 0 end) film_registered
+FROM ${ams.db.carrier}
+WHERE organization_id IN (
+	#[flowVars.query_ams_organization_ids]
+)
+group by extract(year_month from created_on)
+order by min(created_on) asc]]></db:dynamic-query>
+                    </db:select>
+                </when>
+                <when expression="#[flowVars.granularity.equals('last-year')]">
+                    <logger message="1 year" level="INFO" doc:name="1 year = last 12 months"/>
+                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusYears(-1).toString()]" doc:name="Set start (now() - 1 year)"/>
+                    <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
+                    <db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount registered">
+                        <db:dynamic-query><![CDATA[select extract(year_month from created_on), unix_timestamp(min(created_on)) x, count(1) total_registered,
+sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
+sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
+sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
+sum(case when carrier_type_id = 4 then 1 else 0 end) film_registered
+FROM ${ams.db.carrier}
+WHERE organization_id IN (
+	#[flowVars.query_ams_organization_ids]
+)
+AND #[flowVars.timeRange]
+group by extract(year_month from created_on)
+order by min(created_on) asc]]></db:dynamic-query>
+                    </db:select>
+                </when>
+                <when expression="#[flowVars.granularity.equals('last-month')]">
+                    <logger message="1 month" level="INFO" doc:name="1 month = last 30 days"/>
+                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusMonths(-1).toString()]" doc:name="Set start (now() - 1 month)"/>
+                    <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
+                    <db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount registered">
+                        <db:dynamic-query><![CDATA[select concat(extract(year_month from created_on), extract(day from created_on)), unix_timestamp(min(created_on)) x, count(1) total_registered,
+sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
+sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
+sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
+sum(case when carrier_type_id = 4 then 1 else 0 end) film_registered
+FROM ${ams.db.carrier}
+WHERE organization_id IN (
+	#[flowVars.query_ams_organization_ids]
+)
+AND #[flowVars.timeRange]
+group by concat(extract(year_month from created_on), extract(day from created_on))
+order by min(created_on) asc]]></db:dynamic-query>
+                    </db:select>
+                </when>
+                <when expression="#[flowVars.granularity.equals('last-week')]">
+                    <logger message="1 week" level="INFO" doc:name="1 week = last 7 days"/>
+                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusWeeks(-1).toString()]" doc:name="Set start (now() - 1 week)"/>
+                    <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
+                    <db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount registered">
+                        <db:dynamic-query><![CDATA[select concat(extract(year_month from created_on), extract(day from created_on)), unix_timestamp(min(created_on)) x, count(1) total_registered,
+sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
+sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
+sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
+sum(case when carrier_type_id = 4 then 1 else 0 end) film_registered
+FROM ${ams.db.carrier}
+WHERE organization_id IN (
+	#[flowVars.query_ams_organization_ids]
+)
+AND #[flowVars.timeRange]
+group by concat(extract(year_month from created_on), extract(day from created_on))
+order by min(created_on) asc]]></db:dynamic-query>
+                    </db:select>
+                </when>
+                <when expression="#[flowVars.granularity.equals('last-day')]">
+                    <logger message="Live data" level="INFO" doc:name="Last day = 24 hours for every 1 hour"/>
+                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusDays(-1).toString()]" doc:name="Set start (now() - 1 day)"/>
+                    <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
+                    <db:select config-ref="AMS_MySQL" doc:name="AMS: Fetch amount registered">
+                        <db:dynamic-query><![CDATA[select concat(extract(year_month from created_on), extract(day from created_on), extract(hour from created_on)), unix_timestamp(min(created_on)) x, count(1) total_registered,
+sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
+sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
+sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
+sum(case when carrier_type_id = 4 then 1 else 0 end) film_registered
+FROM ${ams.db.carrier}
+WHERE organization_id IN (
+	#[flowVars.query_ams_organization_ids]
+)
+AND #[flowVars.timeRange]
+group by concat(extract(year_month from created_on), extract(day from created_on), extract(hour from created_on))
+order by min(created_on) asc]]></db:dynamic-query>
+                    </db:select>
+                </when>
+                <otherwise>
+                    <logger message="Bad granularity, use last-year, last-month, last-week or last-day" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
+                </otherwise>
+            </choice>
+        </ee:cache>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"total":
+		(payload map (
+				{
+					"x": $.x,
+					"y": $.total_registered
+				}
+		)),
+	"audio": 
+		(payload map (
+				{
+					"x": $.x,
+					"y": $.audio_registered
+				}
+		)),
+	"video": 
+		(payload map (
+				{
+					"x": $.x,
+					"y": $.video_registered
+				}
+		)),
+	"paper": 
+		(payload map (
+				{
+					"x": $.x,
+					"y": $.paper_registered
+				}
+		)),
+	"film": 
+		(payload map (
+				{
+					"x": $.x,
+					"y": $.film_registered
+				}
+		))
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+        <logger message="Done" level="INFO" doc:name="Done"/>
+    </flow>
+
+
+</mule>

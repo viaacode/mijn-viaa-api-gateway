@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:oauth2="http://www.mulesoft.org/schema/mule/oauth2" xmlns:objectstore="http://www.mulesoft.org/schema/mule/objectstore"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/objectstore http://www.mulesoft.org/schema/mule/objectstore/current/mule-objectstore.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
+http://www.mulesoft.org/schema/mule/apikit http://www.mulesoft.org/schema/mule/apikit/current/mule-apikit.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/oauth2 http://www.mulesoft.org/schema/mule/oauth2/current/mule-oauth2.xsd">
+	<context:property-placeholder location="${mule.env}.properties"/>
+	<http:listener-config name="api-httpListenerConfig" host="0.0.0.0" port="${api.port}" doc:name="HTTP Listener Configuration" basePath="/api"/>
+    <apikit:config name="api-config" raml="api.raml" consoleEnabled="false" doc:name="Router">
+        <apikit:flow-mapping resource="/users/active" action="get" flow-ref="get:/users/active:api-config"/>
+    </apikit:config>
+    <db:mysql-config name="MySQL_Configuration" host="${avo.host}" port="3306" user="${avo.user}" password="${avo.password}" database="${avo.database}" doc:name="MySQL Configuration"/>
+    <http:request-config name="HTTP_MM_Request" protocol="HTTPS" host="${mm.link}" port="443" basePath="/" doc:name="HTTP Request Configuration"/>
+    <objectstore:config name="cookiestore" doc:name="ObjectStore: Connector"/>
+    <oauth2:token-manager-config name="Token_Manager_Config"  doc:name="Token Manager Config" />
+    <http:request-config name="HTTP_Request_Configuration" protocol="HTTPS" host="analyticsreporting.googleapis.com" port="443" basePath="/v4" doc:name="HTTP Request Configuration">
+    	<oauth2:authorization-code-grant-type clientId="${ggl.clientid}" clientSecret="${ggl.secret}" redirectionUrl="http://localhost:10007/callback" tokenManager-ref="Token_Manager_Config">
+            <oauth2:authorization-request authorizationUrl="https://accounts.google.com/o/oauth2/v2/auth" localAuthorizationUrl="http://localhost:10007/login" scopes="https://www.googleapis.com/auth/analytics">
+                <oauth2:custom-parameters>
+                    <oauth2:custom-parameter paramName="access_type" value="offline"/>
+                    <oauth2:custom-parameter paramName="login_hint" value="jonas.vanreeth@bewire.be"/>
+                </oauth2:custom-parameters>
+            </oauth2:authorization-request>
+            <oauth2:token-request tokenUrl="https://www.googleapis.com/oauth2/v4/token">
+                <oauth2:token-response accessToken="#[json:access_token]" expiresIn="#[json:expires_in]" refreshToken="#[json:refresh_token]">
+                    <oauth2:custom-parameter-extractor paramName="token_type" value="#[json:token_type]"/>
+                </oauth2:token-response>
+            </oauth2:token-request>
+        </oauth2:authorization-code-grant-type>        
+   </http:request-config>
+
+</mule>

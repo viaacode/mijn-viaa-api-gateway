@@ -1,0 +1,64 @@
+#%RAML 0.8
+baseUri: https://mocksvc.mulesoft.com/mocks/f80ee100-23fa-4b94-9938-4f280d858ac1
+title: Viaa-gateway
+version: 1.0
+
+traits: 
+  - responses-all: !include traits/responses.raml
+            
+
+/user:
+  /{uid}:
+    get:
+      description: Get user info
+    /collections:
+      get:
+    /favorites:
+      get:   
+    /active:
+      get:
+        description: Show last active
+        
+/users:
+  /active:
+    get:
+  /roles:
+    get:
+      description: Get All roles
+      is: [responses-all: {example200: '{"roles":{"rid":"name","rid":"name"}}'}]
+      
+  /count:
+    get:
+      description: Count all users within role
+      is: [responses-all: {example200: '{"roles": { "administrator": "1","Docent": "27889"}}'}]
+      
+    /registered:
+      get:
+        description: Get all registered users with {role} since {datarange}
+    /conversions:
+      get:        
+  
+  /export:
+    get:
+      description: export all user data since {datarange}
+      is: [responses-all: {example200: '{
+                  "Naam test gebruiker": {
+                      "uid": "123",                   
+                      "pid": "123",
+                      "email": "gebruiker@test.be",
+                      "active": 1,
+                      "rol": "Docent",
+                      "lerarenkaart": 123456789,
+                      "graad": "Hoger onderwijs",
+                      "created": "2016-12-08 23:32:10",
+                      "access": "2016-12-08 23:35:13"
+                    }
+                }'}]
+                
+/asset:
+  /{pid}:
+    /favorites:
+      get:
+        description: Get profile favorite
+        is: [responses-all: {example200: '{"type":"onderwijs"}'}]
+    
