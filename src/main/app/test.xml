@@ -36,7 +36,7 @@ http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/fil
     <flow name="google_test_2">
         <http:listener config-ref="api-httpListenerConfig" path="/sha2" allowedMethods="Get" doc:name="HTTP"/>
         <scripting:component doc:name="Python">
-            <scripting:script engine="jython" file="D:\Viaa\gateway\viaa-gateway-v4\python\google.py"/>
+            <scripting:script engine="jython" file="python/google.py"/>
         </scripting:component>
         <logger message="#[payload]" level="INFO" doc:name="Logger"/>
     </flow>
