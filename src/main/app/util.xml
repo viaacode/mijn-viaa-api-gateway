@@ -37,8 +37,8 @@ as :string {format: "yyyy-MM-dd 00:00:00"}]]></dw:set-variable>
 as :string {format: "yyyy-MM-dd 00:00:00"}]]></dw:set-variable>
         </dw:transform-message>
     </sub-flow>
-
-    <sub-flow name="ref:http-call">
+    <flow name="ref:http-call">
+        <flow-ref name="checkCookieExists" doc:name="checkCookieExists"/>
         <enricher source="#[payload[1]]" target="#[flowVars.cookie]" doc:name="Message Enricher">
             <objectstore:retrieve config-ref="cookiestore" key="cookie" doc:name="cookie store"/>
         </enricher>
@@ -47,8 +47,15 @@ as :string {format: "yyyy-MM-dd 00:00:00"}]]></dw:set-variable>
                 <http:header headerName="cookie" value="#[flowVars.cookie]"/>
             </http:request-builder>
         </http:request>
-
-    </sub-flow>
+    </flow>
+    <flow name="checkCookieExists">
+        <objectstore:retrieve config-ref="cookiestore" key="cookie" doc:name="See if cookie exists"/>
+        <choice-exception-strategy doc:name="Choice Exception Strategy">
+            <catch-exception-strategy when="#[exception.causedBy(org.mule.api.store.ObjectDoesNotExistException)]" doc:name="Catch Exception Strategy">
+                <flow-ref name="get:/connect" doc:name="get:/connect"/>
+            </catch-exception-strategy>
+        </choice-exception-strategy>
+    </flow>
 
 	 <flow name="get:/connect">
         <http:listener config-ref="api-httpListenerConfig" path="/connect" allowedMethods="get" doc:name="HTTP"/>
