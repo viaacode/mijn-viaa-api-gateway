@@ -21,7 +21,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
         <http:listener config-ref="api-httpListenerConfig" path="/user/{uid}" doc:name="HTTP"/>
         <set-variable variableName="uid" value="#[message.inboundProperties.'http.uri.params'.uid]" doc:name="var-uid"/>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#['api/user/' + flowVars.uid]" doc:name="var path"/>
+        <set-variable variableName="path" value="#[message.inboundProperties.'http.listener.path']" doc:name="var path"/>
         <set-variable variableName="isPrivate" value="#[0]" doc:name="var isPrivate"/>
         <set-variable variableName="notPrivate" value="#[0]" doc:name="var notPrivate"/>
         <db:select config-ref="MySQL_Configuration" doc:name="db: get asset_ids">
@@ -70,7 +70,7 @@ using ( info=payload[0]){
         <http:listener config-ref="api-httpListenerConfig" path="/user/{uid}/active" allowedMethods="get" doc:name="HTTP"/>
         <set-variable variableName="uid" value="#[message.inboundProperties.'http.uri.params'.uid]" doc:name="var-uid"/>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#[&quot;api/user/&quot;+ flowVars.uid +&quot;/active&quot;]" doc:name="var path"/>
+        <set-variable variableName="path" value="#[message.inboundProperties.'http.listener.path']" doc:name="var path"/>
         <db:select config-ref="MySQL_Configuration" doc:name="Database">
             <db:parameterized-query><![CDATA[select status, FROM_UNIXTIME(access) as last from users where uid = #[flowVars.uid]]]></db:parameterized-query>
         </db:select>
@@ -102,7 +102,7 @@ using ( info=payload[0]){
         <http:listener config-ref="api-httpListenerConfig" path="/user/{uid}/collections" allowedMethods="get" doc:name="HTTP"/>
         <set-variable variableName="uid" value="#[message.inboundProperties.'http.uri.params'.uid]" doc:name="var-uid"/>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#[&quot;api/user/&quot;+ flowVars.uid +&quot;/collections&quot;]" doc:name="var path"/>
+        <set-variable variableName="path" value="#[message.inboundProperties.'http.listener.path']" doc:name="var path"/>
         <db:select config-ref="MySQL_Configuration" doc:name="Database">
             <db:parameterized-query><![CDATA[SELECT asset_id collection_id, n.nid , ass.field_assets_asset_reference title, ass.field_assets_asset_reference_id video_asset,title col_title
 FROM node n
@@ -140,7 +140,7 @@ AND n.type = 'collectie']]></db:parameterized-query>
         <http:listener config-ref="api-httpListenerConfig" path="/user/{uid}/favorites" doc:name="HTTP"/>
         <set-variable variableName="uid" value="#[message.inboundProperties.'http.uri.params'.uid]" doc:name="var-uid"/>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#[&quot;api/user/&quot;+ flowVars.uid +&quot;/favorites&quot;]" doc:name="var path"/>
+        <set-variable variableName="path" value="#[message.inboundProperties.'http.listener.path']" doc:name="var path"/>
         <db:select config-ref="MySQL_Configuration" doc:name="Database">
             <db:parameterized-query><![CDATA[select asset_id collection_id, n.nid , ass.field_assets_asset_reference title, title col_title from node n
 join mediamosa_collection_mapping mc on n.nid = mc.nid
