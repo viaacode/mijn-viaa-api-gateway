@@ -24,7 +24,7 @@ http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mul
     <flow name="get:/users/count:api-config">
         <http:listener config-ref="api-httpListenerConfig" path="/users/count" allowedMethods="get" doc:name="HTTP"/>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#['api/users/count']" doc:name="var path"/>
+        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
     	<db:select config-ref="MySQL_Configuration" doc:name="Database">
             <db:parameterized-query><![CDATA[SELECT
 				    r.name as name, COUNT(DISTINCT (u.uid)) as count, u.status
@@ -84,7 +84,7 @@ http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mul
 	<flow name="get:/users/active:api-config">
         <http:listener config-ref="api-httpListenerConfig" path="users/count/active" allowedMethods="get" doc:name="HTTP"/>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#['api/users/count/active']" doc:name="var path"/>
+        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
 		<flow-ref name="datarange" doc:name="datarange"/>
         <choice doc:name="Choice_check_date">
             <when expression="#[flowVars.from &gt; flowVars.until]">
@@ -166,7 +166,7 @@ ORDER BY ur.rid;]]></db:parameterized-query>
 	<flow name="get:/users/count/conversions:api-config">
         <http:listener config-ref="api-httpListenerConfig" path="/users/count/conversions" allowedMethods="get" doc:name="HTTP"/>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#['api/users/count/conversions']" doc:name="var path"/>
+        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
         <set-variable variableName="query-from" value="#[(message.inboundProperties.'http.query.params'.from == empty)? '20050102' : message.inboundProperties.'http.query.params'.from]" doc:name="var from"/>
         <set-variable variableName="today" value="#[server.dateTime]" doc:name="var today"/>
         <set-variable variableName="query-until" value="#[(message.inboundProperties.'http.query.params'.until == empty) ? flowVars.today : message.inboundProperties.'http.query.params'.until]" doc:name="var until"/>
@@ -277,18 +277,22 @@ as :string {format: "yyyy-MM-dd"}]]></dw:set-variable>
     <flow name="get:/users/count/registered:api-config">
         <http:listener config-ref="api-httpListenerConfig" path="/users/count/registered" allowedMethods="get" doc:name="HTTP"/>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#['api/users/count/registered']" doc:name="var path"/>
+        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
         <flow-ref name="datarange" doc:name="datarange"/>
         <db:select config-ref="MySQL_Configuration" doc:name="Database">
-            <db:parameterized-query><![CDATA[Select
-	COUNT(DISTINCT (u.uid)) as registered
-From
-	users u
+            <db:parameterized-query><![CDATA[Select r.name, count(u.uid) as count From users u
+JOIN users_roles ur ON u.uid = ur.uid
+JOIN role r ON r.rid = ur.rid
 WHERE
 		FROM_UNIXTIME(u.access)>= #[flowVars.from]
 	And
-		FROM_UNIXTIME(u.access)<= #[flowVars.until]]]></db:parameterized-query>
+		FROM_UNIXTIME(u.access)<= #[flowVars.until]
+GROUP BY r.name;]]></db:parameterized-query>
         </db:select>
+        <set-variable variableName="total" value="#[0]" doc:name="Set total"/>
+        <foreach collection="#[payload]" doc:name="For Each">
+            <set-variable variableName="total" value="#[flowVars.total + payload.count]" doc:name="Add count to total"/>
+        </foreach>
         <dw:transform-message doc:name="output">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
@@ -296,15 +300,21 @@ WHERE
 {
 	"header": {
 		"timestamp": flowVars['getMilli'],
-		"path": "/users/count/registerd",
+		"path": flowVars['path'],
         "description": "Telling registraties binnen bepaalde periode.",
         "success":"All went well, and (usually) some data was returned.",
         "from" : flowVars['from'],
         "until": flowVars['until'],
-        "result_count": payload.registered,
+        "result_count": flowVars.total,
         "sources": ["avo"]
 	},
-	"data": {(payload)}
+	"data": {
+		"roles": {
+			(payload map  {
+				($.name as :string) : $.count
+			})
+		}
+	}
 }]]></dw:set-payload>
         </dw:transform-message>
         <catch-exception-strategy doc:name="Catch Exception Strategy">
@@ -411,7 +421,7 @@ payload map {
 {
 	"header": {
 		"timestamp": flowVars['getMilli'],
-		"path": "/users/export/",
+		"path": flowVars['path'],
         "description": "exporteert de data van docent en student binnen bepaalde periode.",
         "success":"All went well, and (usually) some data was returned.",
         "from" : flowVars['from'],
@@ -428,7 +438,7 @@ payload map {
 <!--         <file:outbound-endpoint  outputPattern="users-#[flowVars.getMilli].csv" responseTimeout="10000" doc:name="File"/> -->
 
         <catch-exception-strategy doc:name="Catch Exception Strategy">
-            <set-variable variableName="path" value="#['api/users/count/registered']" doc:name="var path"/>
+            <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
             <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
             <set-variable variableName="fail" value="#[exception.cause.message]" doc:name="var fail"/>
             <dw:transform-message doc:name="fail message">
@@ -451,7 +461,7 @@ payload map {
     </flow>
     <flow name="get:/users/roles:api-config">
         <http:listener config-ref="api-httpListenerConfig" path="/users/roles" allowedMethods="get" doc:name="HTTP"/>
-        <set-variable variableName="path" value="#['api/users/count/registered']" doc:name="var path"/>
+        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
         <db:select config-ref="MySQL_Configuration" doc:name="Database">
             <db:parameterized-query><![CDATA[SELECT * FROM sb_testbeeldond.role as r order by r.rid;]]></db:parameterized-query>
@@ -467,7 +477,7 @@ payload map {
 {
 	"header": {
 		"timestamp": flowVars['getMilli'],
-		"path": "/users/roles",
+		"path": flowVars['path'],
         "description": "Mogelijke gebruikersrollen in AvO.",
         "success":"All went well, and (usually) some data was returned.",
         "result_count": sizeOf payload,

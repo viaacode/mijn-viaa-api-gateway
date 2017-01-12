@@ -21,26 +21,52 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
         <http:listener config-ref="api-httpListenerConfig" path="/user/{uid}" doc:name="HTTP"/>
         <set-variable variableName="uid" value="#[message.inboundProperties.'http.uri.params'.uid]" doc:name="var-uid"/>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#[message.inboundProperties.'http.listener.path']" doc:name="var path"/>
+        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
         <set-variable variableName="isPrivate" value="#[0]" doc:name="var isPrivate"/>
         <set-variable variableName="notPrivate" value="#[0]" doc:name="var notPrivate"/>
-        <db:select config-ref="MySQL_Configuration" doc:name="db: get asset_ids">
-            <db:parameterized-query><![CDATA[select mc.asset_id from node n
-join 	mediamosa_collection_mapping mc on n.nid = mc.nid
-where n.uid = #[flowVars.uid]
-and n.type = 'collectie']]></db:parameterized-query>
+        <db:select config-ref="MySQL_Configuration" doc:name="Get user information">
+            <db:parameterized-query><![CDATA[SELECT 
+    u.uid,
+    p.pid,
+    u.name naam,
+    u.mail 'e-mail',
+    u.status active,
+    FROM_UNIXTIME(u.created) created,
+    FROM_UNIXTIME(u.access) access,
+    r.name rol,
+    GROUP_CONCAT(rl.field_registratie_leraarkaart_value) lerarenkaart,
+    GROUP_CONCAT(td.name
+        SEPARATOR ', ') graad,
+    GROUP_CONCAT(DISTINCT n.title
+        SEPARATOR ', ') school,
+    SUBSTRING_INDEX(m.sourceid1, '_', 1) vestigingsnummer
+FROM
+    users u
+        LEFT JOIN
+    users_roles ur ON ur.uid = u.uid
+        JOIN
+    role r ON r.rid = ur.rid
+        LEFT JOIN
+    profile p ON p.uid = u.uid
+        LEFT JOIN
+    field_data_field_registratie_leraarkaart rl ON rl.entity_id = p.pid
+        LEFT JOIN
+    field_data_field_leerjaar_ref lr ON lr.entity_id = p.pid
+        LEFT JOIN
+    taxonomy_term_data td ON td.tid = lr.field_leerjaar_ref_target_id
+        LEFT JOIN
+    field_data_field_registratie_scholen rs ON rs.entity_id = p.pid
+        LEFT JOIN
+    field_data_field_scholen fs ON fs.entity_id = p.pid
+        LEFT JOIN
+    node n ON n.nid = fs.field_scholen_target_id
+        LEFT JOIN
+    migrate_map_testbeeld_contentonderwijsinstellingen m ON m.destid1 = n.nid
+WHERE
+    u.uid = #[flowVars.uid]
+GROUP BY u.uid
+order by u.created desc]]></db:parameterized-query>
         </db:select>
-        <foreach collection="#[payload]" doc:name="For Each">
-            <choice doc:name="Choice_privite/not">
-                <when expression="#[payload.isprivate == 'TRUE']">
-                    <set-variable variableName="isPrivate" value="#[flowVars.isPrivate + 1]" doc:name="var isPrivate"/>
-                </when>
-                <otherwise>
-                    <set-variable variableName="notPrivate" value="#[flowVars.notPrivate + 1]" doc:name="var notPrivate"/>
-                </otherwise>
-            </choice>
-        </foreach>
-        <set-variable variableName="total" value="#[flowVars.isPrivate + flowVars.notPrivate]" doc:name="var total"/>
         <dw:transform-message doc:name="output">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
@@ -49,16 +75,11 @@ using ( info=payload[0]){
 	"header": {
 		"timestamp": flowVars['getMilli'],
 		"path": flowVars['path'],
-	    "description": "Gerbuiker collection aantal",
+	    "description": "Gebuiker informatie",
 	    "success":"All went well, and (usually) some data was returned.",
-        "result_count": sizeOf payload,
 	    "sources": ["avo"]
 	},
-	"data": { 
-		total:flowVars["total"],
-		private:flowVars["isPrivate"],
-		not-private:flowVars["notPrivate"]
-	}
+	"data": {(payload)}
 }]]></dw:set-payload>
         </dw:transform-message>
 
@@ -70,7 +91,7 @@ using ( info=payload[0]){
         <http:listener config-ref="api-httpListenerConfig" path="/user/{uid}/active" allowedMethods="get" doc:name="HTTP"/>
         <set-variable variableName="uid" value="#[message.inboundProperties.'http.uri.params'.uid]" doc:name="var-uid"/>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#[message.inboundProperties.'http.listener.path']" doc:name="var path"/>
+        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
         <db:select config-ref="MySQL_Configuration" doc:name="Database">
             <db:parameterized-query><![CDATA[select status, FROM_UNIXTIME(access) as last from users where uid = #[flowVars.uid]]]></db:parameterized-query>
         </db:select>
@@ -102,7 +123,7 @@ using ( info=payload[0]){
         <http:listener config-ref="api-httpListenerConfig" path="/user/{uid}/collections" allowedMethods="get" doc:name="HTTP"/>
         <set-variable variableName="uid" value="#[message.inboundProperties.'http.uri.params'.uid]" doc:name="var-uid"/>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#[message.inboundProperties.'http.listener.path']" doc:name="var path"/>
+        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
         <db:select config-ref="MySQL_Configuration" doc:name="Database">
             <db:parameterized-query><![CDATA[SELECT asset_id collection_id, n.nid , ass.field_assets_asset_reference title, ass.field_assets_asset_reference_id video_asset,title col_title
 FROM node n
@@ -140,7 +161,7 @@ AND n.type = 'collectie']]></db:parameterized-query>
         <http:listener config-ref="api-httpListenerConfig" path="/user/{uid}/favorites" doc:name="HTTP"/>
         <set-variable variableName="uid" value="#[message.inboundProperties.'http.uri.params'.uid]" doc:name="var-uid"/>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#[message.inboundProperties.'http.listener.path']" doc:name="var path"/>
+        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
         <db:select config-ref="MySQL_Configuration" doc:name="Database">
             <db:parameterized-query><![CDATA[select asset_id collection_id, n.nid , ass.field_assets_asset_reference title, title col_title from node n
 join mediamosa_collection_mapping mc on n.nid = mc.nid

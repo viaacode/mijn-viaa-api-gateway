@@ -17,7 +17,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
         <set-variable variableName="pid" value="#[message.inboundProperties.'http.uri.params'.pid]" doc:name="var pid"/>
         <set-variable variableName="link" value="/asset?cql=dc.identifier%3D%22#[flowVars.pid]%22" doc:name="var link"/>
         <set-variable variableName="info" value="#[message.inboundProperties.'http.uri.params'.info]" doc:name="var info"/>
-        <set-variable variableName="path" value="#[message.inboundProperties.'http.listener.path']" doc:name="var path"/>
+        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
         <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
         <dw:transform-message doc:name="var count">
             <dw:set-payload><![CDATA[%dw 1.0
@@ -204,7 +204,7 @@ payload]]></dw:set-payload>
 payload.response.header.item_count]]></dw:set-variable>
         </dw:transform-message>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#[message.inboundProperties.'http.listener.path']" doc:name="var path"/>
+        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
         <choice doc:name="Choice_asset_found">
             <when expression="#[flowVars.count &gt; 0]">
                 <choice doc:name="Choice_search_criteria">
@@ -346,7 +346,7 @@ payload.response.header.item_count]]></dw:set-variable>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
         <set-variable variableName="pid" value="#[message.inboundProperties.'http.uri.params'.pid]" doc:name="var pid"/>
         <set-variable variableName="link" value="/asset?cql=dc.identifier%3D%22#[flowVars.pid]%22" doc:name="var link"/>
-        <set-variable variableName="path" value="#[message.inboundProperties.'http.listener.path']" doc:name="var path"/>
+        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
         <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
         <dw:transform-message doc:name="output">
             <dw:set-payload><![CDATA[%dw 1.0
@@ -385,7 +385,7 @@ payload.response.header.item_count]]></dw:set-variable>
     <flow name="get:asset/mm/{id}">
         <http:listener config-ref="api-httpListenerConfig" path="/asset/mm/{id}" doc:name="HTTP" allowedMethods="get"/>
         <set-variable variableName="id" value="#[message.inboundProperties.'http.uri.params'.id]" doc:name="var id"/>
-        <set-variable variableName="path" value="#[message.inboundProperties.'http.listener.path']" doc:name="var path"/>
+        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
         <flow-ref name="ref:/asset/mm/{id}" doc:name="ref:/asset/mm/{id}"/>
         <dw:transform-message doc:name="output">
