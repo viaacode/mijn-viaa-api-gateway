@@ -1,0 +1,227 @@
+#%RAML 0.8
+title: api-gateway
+version: 2.0
+
+traits: 
+  - responses-all: !include traits/responses.raml
+  - dates: !include traits/daterange.raml
+
+/asset:
+  /{pid}:
+    get:
+      description: "Get asset's info based on pid"
+      is: [responses-all: {
+        example200: '"data":{"asset_id":"e1NCVSPPlZ6X9b5ocK5U9b7G","app_id":"2","provider_id":"","owner_id":"bart.debunne@viaa.be","group_id":"","videotimestamp":"2014-05-23 16:01:21","videotimestampmodified":"2016-10-28 13:02:20","play_restriction_start":"","play_restriction_end":"","reference_id":"","isprivate":"FALSE","mediafile_duration":"00:02:10.86","mediafile_container_type":"mov;mp4;m4a;3gp;3g2;mj2","mediafile_filename":"1210071009352242421.m4v","is_unappropriate":"FALSE","is_external":"FALSE","is_empty_asset":"FALSE","viewed":"206","played":"2442","is_protected":"FALSE","mediafile_mime_type":"video/mp4","asset_type":"video","is_unappropiate":"FALSE","app_3":{"total_comments":"","total_favourites":"","viaa_org":"OR-rf5kf25","viaa_pid":"6m33208w27"},"asset":{"aggregate":"","aggregate_type":"","component":"","component_order":"","draft_asset_id":"","lock_date":"","lock_owner":"","original_asset_id":"","published":"TRUE","trashcan":"FALSE","trashcan_date":"","trashcan_user":""},"czp":{"aggregatieniveau":"","auteursrechten":"","beoogde_eindgebruiker":"Student","beoogde_leeftijdsgroep":"Lager 3de graad","beschrijving":"Fragment van Karrewiet waarin kinderen een bezoek brengen aan soldatenkerkhoven in de Westhoek. Hierin wordt op een begrijpbaar niveau uitleg gegeven over de Eerste Wereldoorlog. De leerlingen staan stil bij de gruwel van de de oorlog. ","classificatie":"mens en maatschappij","context":"Lager onderwijs","identificatiecode":"","kosten":"","omschrijving_rechten":"","schemanaam":"","sleutelwoord":"","soort_leermateriaal":"Video","status":"","taal":"nl","titel":"","versie":""},"dublin_core":{"contributor":"","coverage_spatial":"","coverage_temporal":"","creator":"VRT","date":"","description":"In dit fragment wordt de Eerste Wereldoorlog herdacht. Op het soldatenkerkhof in Veltem brengen de leerlingen van Mater Dei in Erps Kwerps een bezoek. Er volgt een  interview met de leerlingen.\r\n","format":"Video","identifier":"1210071009352242421","language":"nl","publisher":"VRT","relation":"AIM00262447","rights":"Rechten voorbehouden","source":"","subject":"Veltem","title":"Karrewiet: soldatenkerkhof WO I","type":"Nieuws"},"qualified_dublin_core":{"created":"","description_abstract":"","format_extent":"","format_medium":"","hasformat":"","isformatof":"","isreferencedby":"","issued":"2005-11-11 00:00:00","license":"","rightsholder":"","title_alternative":"Karrewiet"},"is_favorite":"FALSE","granted":"TRUE","has_streamable_mediafiles":"TRUE","ega_still_url":"","vpx_still_url":"https://salsa1.viaa.be/media/3/T/TcNi9QIPPBtKgjUUkkj8M6t1/TcNi9QIPPBtKgjUUkkj8M6t1.jpg"}',
+        description: "Get asset's info based on pid"}]
+    /{type}:
+      uriParameters: 
+        type: 
+          enum: [favorites, plays, views, still, media]
+      get:
+        description: Get assets {info} based on pid
+        is: [responses-all: {
+          example200: '"data":{"plays":"0"}',
+          description: "Get assets {info} based on pid"}]
+  /mm/{id}:
+    get:
+      description: "Get asset's info based on asset_id"
+      is: [responses-all: {
+        example200: '"data":{"asset_id":"z1gdeWNEVWqhSbcjMSyMrFab","app_id":"2","provider_id":"","owner_id":"bart.debunne@viaa.be","group_id":"","videotimestamp":"2017-01-15 23:48:07","videotimestampmodified":"2017-01-15 23:59:32","play_restriction_start":"","play_restriction_end":"","reference_id":"","isprivate":"FALSE","mediafile_duration":"","mediafile_container_type":"","mediafile_filename":"","is_unappropriate":"FALSE","is_external":"TRUE","is_empty_asset":"FALSE","viewed":"0","played":"0","is_protected":"FALSE","mediafile_mime_type":"","asset_type":"video","is_unappropiate":"FALSE","app_3":{"total_comments":"","total_favourites":"","viaa_org":"OR-rf5kf25","viaa_pid":"862b85r567"},"asset":{"aggregate":"","aggregate_type":"","component":"","component_order":"","draft_asset_id":"","lock_date":"","lock_owner":"","original_asset_id":"","published":"TRUE","trashcan":"FALSE","trashcan_date":"","trashcan_user":""},"czp":{"aggregatieniveau":"1","auteursrechten":"","beoogde_eindgebruiker":"Student","beoogde_leeftijdsgroep":"Secundair 3de graad","beschrijving":"","classificatie":"politieke en sociale wetenschappen - maatschappijleer","context":"Secundair onderwijs","identificatiecode":"","kosten":"","omschrijving_rechten":"","schemanaam":"","sleutelwoord":"","soort_leermateriaal":"","status":"","taal":"","titel":"","versie":""},"dublin_core":{"contributor":"","coverage_spatial":"","coverage_temporal":"","creator":"","date":"","description":"Tweede deel van de reportage van Stefaan Meerbergen in Noord-Korea.\n\nBeelden van Pyongyang: op zijn hotelkamer kijkt Meerbergen naar de staatsomroep met propaganda voor de leiders.\n\nBeelden van de geliefde Kim Il-sung, Noord-Koreanen dansen bij een vlag en lijken gelukkig. Meerbergen loopt rond in zijn hotel en vertelt dat er in geen enkel hotel een vijfde verdieping is. Hij vertelt over de samenzweringstheorieën die er rond de vijfde verdieping bestaan.\n\nAfspraak met gids Ri Chung Il in een boekenwinkel. Hij toont de boeken die zogezegd geschreven zijn door de leiders, over het beleid van Noord-Korea. De gids leest voor uit een boek en licht de inhoud toe. Het gaat over Juche, de Noord-Koreaanse politieke filosofie. Hij vindt Kim Il-sung en Kim Jong-il de beste regeringsleiders in de wereld. Archiefbeelden van Kim Jong-il.\n\nUitleg met foto over Kim Il-sung, Kim Jong-il en Kim Jong-un.\n\nBeelden van een weverij in Noord-Korea.\n\nMeerbergen in zijn hotelkamer: hij vertelt over zijn gids en vraagt zich af of het gemeend is wat hij zegt. Meerbergen vertelt dat hij wil opklimmen in de partij. Hij vertelt over het in stand houden van de devotie van de inwoners en over het mythologiseren van de regeringsleiders. Hij vertelt over de moeilijke relatie met de klankman en vermoedt dat hij een spion is.\n\nBedrijfsbezoek: een tolk praat voornamelijk over Grote Leider Kim Il-sung. Meerbergen toont de ruimte waar de grote leiders worden verheerlijkt.\nBezoek aan de paardrijdclub. Een gids vertelt dat Kim Jong-un persoonlijk heeft meegeholpen met de bouw van de club.\n\nLuchtfoto met aanduiding van enkele mogelijke strafkampen. Meerbergen vertelt over de schending van de mensenrechten in Noord-Korea.\n\nBeelden van een restaurant op een boot. Fotosessie met een Noord-Koreaans kind en een gezellige avond.","format":"","identifier":"862b85r567","language":"nl","publisher":"VRT","relation":"ms3jw8sf5j","rights":"","source":"","subject":"propaganda","title":"Terzake: Noord-Korea","type":""},"qualified_dublin_core":{"created":"","description_abstract":"","format_extent":"","format_medium":"","hasformat":"","isformatof":"","isreferencedby":"65cdc5ff-c143-47a6-ac14-bcceb85ff67a","issued":"2014-11-18 00:00:00","license":"","rightsholder":"","title_alternative":"Terzake"},"is_favorite":"FALSE","granted":"TRUE","has_streamable_mediafiles":"TRUE","ega_still_url":"","vpx_still_url":"http://archief-media.viaa.be/viaa/TESTBEELD/445f64899bcc47e88e4e35592ce701fafb61ce18d8fe45b2a9490846027eb943/keyframes/keyframes_1_1/keyframe1.jpg"}',
+        description: "Get asset's info based on asset_id"}]
+    /{type}:
+      uriParameters: 
+        type: 
+          enum: [favorites, plays, views, still, media]
+      get:
+        description: "Get asset's favorites based on asset_id"
+        is: [responses-all: {
+          example200: '"data":{"plays":"0"}',
+          description: "Get asset's favorites based on asset_id"}]
+/assets:
+  /count:
+    get:
+      description: "Count all assets grouped by type"
+      is: [responses-all: {
+        example200: '"data":{"collectie":"845","thema":"181","video":"8556","audio":"719"}',
+        description: "Count all assets grouped by type"}]
+    /{type}:
+      uriParameters: 
+          type: 
+            enum: [video, audio, collectie, thema]
+      get:
+        description: "Count all assets of type: video/adio/collectie/thema"
+        is: [responses-all: {
+          example200: '"data":{"video":"8556"}',
+          description: "Count all assets of type: video/adio/collectie/thema"}]
+  /mostrecent:
+    get:
+      description: "Gets the most recent asset independent of type"
+      is: [responses-all: {
+        example200: '"data":{"asset_id":"I2mTZfCXeECZRNYqaFMnNjZd","app_id":"3","provider_id":"","owner_id":"is_app_admin","group_id":"","videotimestamp":"2017-01-17 14:02:21","videotimestampmodified":"2017-01-17 14:02:21","play_restriction_start":"","play_restriction_end":"","reference_id":"","isprivate":"FALSE","mediafile_duration":"","mediafile_container_type":"","mediafile_filename":"","is_unappropriate":"FALSE","is_external":"FALSE","is_empty_asset":"FALSE","viewed":"0","played":"0","is_protected":"FALSE","mediafile_mime_type":"","asset_type":"collectie","is_unappropiate":"FALSE","app_3":{"total_comments":"","total_favourites":"","viaa_org":"","viaa_pid":""},"asset":{"aggregate":"","aggregate_type":"","component":"","component_order":"","draft_asset_id":"","lock_date":"","lock_owner":"","original_asset_id":"","published":"TRUE","trashcan":"FALSE","trashcan_date":"","trashcan_user":""},"czp":{"aggregatieniveau":"","auteursrechten":"","beoogde_eindgebruiker":"","beoogde_leeftijdsgroep":"","beschrijving":"","classificatie":"","context":"","identificatiecode":"","kosten":"","omschrijving_rechten":"","schemanaam":"","sleutelwoord":"","soort_leermateriaal":"","status":"","taal":"","titel":"","versie":""},"dublin_core":{"contributor":"","coverage_spatial":"","coverage_temporal":"","creator":"","date":"","description":"","format":"","identifier":"","language":"","publisher":"VRT","relation":"","rights":"","source":"","subject":"zoekgeschiedenis","title":"gevaren internet","type":"Praatprogramma"},"qualified_dublin_core":{"created":"","description_abstract":"","format_extent":"","format_medium":"","hasformat":"","isformatof":"","isreferencedby":"","issued":"","license":"","rightsholder":"","title_alternative":""},"is_favorite":"FALSE","granted":"TRUE","has_streamable_mediafiles":"FALSE","ega_still_url":"","vpx_still_url":""}',
+        description: "Gets the most recent asset independent of type"}]
+    /{type}:
+      uriParameters: 
+        type: 
+          enum: [video, audio, collectie, thema]
+      get:
+        description: "find most recent of type: video/adio/collectie/thema"
+        is: [responses-all: {
+          example200: '"data":{"collectie":{"asset_id":"I2mTZfCXeECZRNYqaFMnNjZd","app_id":"3","provider_id":"","owner_id":"is_app_admin","group_id":"","videotimestamp":"2017-01-17 14:02:21","videotimestampmodified":"2017-01-17 14:02:21","play_restriction_start":"","play_restriction_end":"","reference_id":"","isprivate":"FALSE","mediafile_duration":"","mediafile_container_type":"","mediafile_filename":"","is_unappropriate":"FALSE","is_external":"FALSE","is_empty_asset":"FALSE","viewed":"0","played":"0","is_protected":"FALSE","mediafile_mime_type":"","asset_type":"collectie","is_unappropiate":"FALSE","app_3":{"total_comments":"","total_favourites":"","viaa_org":"","viaa_pid":""},"asset":{"aggregate":"","aggregate_type":"","component":"","component_order":"","draft_asset_id":"","lock_date":"","lock_owner":"","original_asset_id":"","published":"TRUE","trashcan":"FALSE","trashcan_date":"","trashcan_user":""},"czp":{"aggregatieniveau":"","auteursrechten":"","beoogde_eindgebruiker":"","beoogde_leeftijdsgroep":"","beschrijving":"","classificatie":"","context":"","identificatiecode":"","kosten":"","omschrijving_rechten":"","schemanaam":"","sleutelwoord":"","soort_leermateriaal":"","status":"","taal":"","titel":"","versie":""},"dublin_core":{"contributor":"","coverage_spatial":"","coverage_temporal":"","creator":"","date":"","description":"","format":"","identifier":"","language":"","publisher":"VRT","relation":"","rights":"","source":"","subject":"zoekgeschiedenis","title":"gevaren internet","type":"Praatprogramma"},"qualified_dublin_core":{"created":"","description_abstract":"","format_extent":"","format_medium":"","hasformat":"","isformatof":"","isreferencedby":"","issued":"","license":"","rightsholder":"","title_alternative":""},"is_favorite":"FALSE","granted":"TRUE","has_streamable_mediafiles":"FALSE","ega_still_url":"","vpx_still_url":""}}',
+          description: "find most recent of type: video/adio/collectie/thema"}]
+  /mostviewed:
+    get:
+      description: "Find most viewed asset - ON HOLD. WILL RETURN NOTHING"
+      is: [responses-all: {
+        example200: '"data":{}',
+        description: "Find most viewed asset"}]
+    /{type}:
+      uriParameters: 
+        type: 
+          enum: [video, audio, collectie, thema]
+      get:
+        description: "find most viewed of type: video/adio/collectie/thema - ON HOLD. WILL RETURN NOTHING"
+        is: [responses-all: {
+          example200: '"data":{}',
+          description: "find most viewed of type: video/adio/collectie/thema"}]
+  /mostfavorites:
+    get:
+      description: "Find most favorited asset"
+      is: [responses-all: {
+        example200: '"data":{"asset_id":"I2mTZfCXeECZRNYqaFMnNjZd","app_id":"3","provider_id":"","owner_id":"is_app_admin","group_id":"","videotimestamp":"2017-01-17 14:02:21","videotimestampmodified":"2017-01-17 14:02:21","play_restriction_start":"","play_restriction_end":"","reference_id":"","isprivate":"FALSE","mediafile_duration":"","mediafile_container_type":"","mediafile_filename":"","is_unappropriate":"FALSE","is_external":"FALSE","is_empty_asset":"FALSE","viewed":"0","played":"0","is_protected":"FALSE","mediafile_mime_type":"","asset_type":"collectie","is_unappropiate":"FALSE","app_3":{"total_comments":"","total_favourites":"","viaa_org":"","viaa_pid":""},"asset":{"aggregate":"","aggregate_type":"","component":"","component_order":"","draft_asset_id":"","lock_date":"","lock_owner":"","original_asset_id":"","published":"TRUE","trashcan":"FALSE","trashcan_date":"","trashcan_user":""},"czp":{"aggregatieniveau":"","auteursrechten":"","beoogde_eindgebruiker":"","beoogde_leeftijdsgroep":"","beschrijving":"","classificatie":"","context":"","identificatiecode":"","kosten":"","omschrijving_rechten":"","schemanaam":"","sleutelwoord":"","soort_leermateriaal":"","status":"","taal":"","titel":"","versie":""},"dublin_core":{"contributor":"","coverage_spatial":"","coverage_temporal":"","creator":"","date":"","description":"","format":"","identifier":"","language":"","publisher":"VRT","relation":"","rights":"","source":"","subject":"zoekgeschiedenis","title":"gevaren internet","type":"Praatprogramma"},"qualified_dublin_core":{"created":"","description_abstract":"","format_extent":"","format_medium":"","hasformat":"","isformatof":"","isreferencedby":"","issued":"","license":"","rightsholder":"","title_alternative":""},"is_favorite":"FALSE","granted":"TRUE","has_streamable_mediafiles":"FALSE","ega_still_url":"","vpx_still_url":""}',
+        description: "Find most favorited asset"}]
+    /{type}:
+      uriParameters: 
+        type: 
+          enum: [video, audio, collectie, thema]
+      get:
+        description: "find most favorited of type: video/adio/collectie/thema"
+        is: [responses-all: {
+          example200: '"data":{"audio":{"asset_id":"O1WgWX6mfevPZdfOdWn3oTHR","app_id":"2","provider_id":"","owner_id":"bart.debunne@viaa.be","group_id":"bart.debunne@viaa.be","videotimestamp":"2016-10-20 21:34:41","videotimestampmodified":"2016-10-28 12:50:26","play_restriction_start":"","play_restriction_end":"","reference_id":"","isprivate":"FALSE","mediafile_duration":"00:11:53.52","mediafile_container_type":"mov;mp4;m4a;3gp;3g2;mj2","mediafile_filename":"1210160928655888321.m4a","is_unappropriate":"FALSE","is_external":"FALSE","is_empty_asset":"FALSE","viewed":"68","played":"1","is_protected":"FALSE","mediafile_mime_type":"audio/mp4","asset_type":"audio","is_unappropiate":"FALSE","app_3":{"total_comments":"","total_favourites":"","viaa_org":"OR-rf5kf25","viaa_pid":"td9n30653g"},"asset":{"aggregate":"","aggregate_type":"","component":"","component_order":"","draft_asset_id":"","lock_date":"","lock_owner":"","original_asset_id":"","published":"TRUE","trashcan":"FALSE","trashcan_date":"","trashcan_user":""},"czp":{"aggregatieniveau":"","auteursrechten":"","beoogde_eindgebruiker":"Student","beoogde_leeftijdsgroep":"Secundair 3de graad","beschrijving":"In dit fragment van De kunstberg wordt het boek van Ad Ten Bosch over Ida Gerhardt besproken.","classificatie":"PAV - MAVO - GASV - ASPV","context":"Secundair onderwijs","identificatiecode":"","kosten":"","omschrijving_rechten":"","schemanaam":"","sleutelwoord":"","soort_leermateriaal":"Audio","status":"","taal":"nl","titel":"","versie":""},"dublin_core":{"contributor":"Xavier Vandamme","coverage_spatial":"","coverage_temporal":"","creator":"VRT","date":"2016-09-28","description":"In dit fragment van De kunstberg wordt het boek van Ad Ten Bosch over Ida Gerhardt besproken.\r\n\r\nIn de poëziekroniek wordt aandacht besteed aan het boek van Ad Ten Bosch, ‘Gebroken lied - Een vriendschap met Ida Gerhardt’. Een gesprek met poëziekenner Mark Van den Hoof over dit werk.  ","format":"Audio","identifier":"1210160928655888321","language":"nl","publisher":"VRT","relation":"AIM01206668","rights":"Rechten voorbehouden","source":"1210130603147265121","subject":"poëzie","title":"De kunstberg: de biografie van Ida Gerhardt","type":"Duiding"},"qualified_dublin_core":{"created":"1999-09-07 00:00:00","description_abstract":"","format_extent":"","format_medium":"","hasformat":"","isformatof":"","isreferencedby":"","issued":"1999-09-07 00:00:00","license":"","rightsholder":"","title_alternative":"De kunstberg"},"is_favorite":"FALSE","granted":"TRUE","has_streamable_mediafiles":"TRUE","ega_still_url":"","vpx_still_url":"https://salsa1.viaa.be/media/3/y/y2ZLFVrZZhVYZgYofQDcaIg2/y2ZLFVrZZhVYZgYofQDcaIg2.jpg"}}',
+          description: "find most favorited of type: video/adio/collectie/thema"}]
+/user:
+  /{uid}:
+    get:
+        description: "Get user information based on uid"
+        is: [responses-all: {
+          example200: '"data":{"active":1,"created":"2000-01-01T00:00:00","access":"2000-01-01T00:00:00","uid":123456789,"naam":"John Doe","rol":"god","vestigingsnummer":"0123456789","pid":123456789,"e-mail":"john.doe@example.com","lerarenkaart":null,"graad":"Hoogste","school":"Harvard"}',
+          description: "Get user information based on uid"},dates]
+    /collections:
+      get:
+        description: "users collection numbers"
+        is: [responses-all: {
+          example200: '"data":[{"video_asset":"e1NCVSPPlZ6X9b5ocK5U9b7G","nid":53741,"title":"Soldatenhuwelijk in de loopgraven","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"I2MSaSijUgIjFXIThZ8gB1xU","nid":53741,"title":"Dodengang","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"p1JrMHdoSSZbERcGZiKkkftZ","nid":53741,"title":"DOVO ontmijnt","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"p2Bsc9dlBSPLbaZ9YIiiR7lN","nid":53741,"title":"Wapenstilstand","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"e1ZUFfemPXwfkZhsL3cPWxuU","nid":53741,"title":"11 november","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"O2fOlHTJZTNTeTYj2Z0P61oc","nid":116301,"title":"1. Marc De Bel drinkt biomelk","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"x1ZIMMNO5JZUXLKFWhorWWV6","nid":116301,"title":"2. De Miss Griezelverkiezing'' van Marc De Bel","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"vyeR8faUqJMbRYfQDpCT25cE","nid":116301,"title":"3. Marc De Bel stelt nieuw boek voor ''Kapitein Cacao''","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"mKSOcnmbjxNcOWXVRJsIO0GZ","nid":116301,"title":"4. Opname van jeugdfilm ''Blinker en de bakfietsbioscoop''","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"c1ASsMRNQbKmWQQNXl9E2J1R","nid":116301,"title":"5. Boeboeks","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"V1INNUlfpVgunOfOnSZh1qx1","nid":532741,"title":"Onze ruimte: planeten om de zon","collection_id":"iXJHIaKVMXZWGKhdmiaFZVJO","col_title":"zon"}]',
+          description: "users collection numbers"},dates]
+    /favorites:
+      get:
+        description: "users favourite assets"
+        is: [responses-all: {
+          example200: '"data":[{"video_asset":"e1NCVSPPlZ6X9b5ocK5U9b7G","nid":53741,"title":"Soldatenhuwelijk in de loopgraven","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"I2MSaSijUgIjFXIThZ8gB1xU","nid":53741,"title":"Dodengang","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"p1JrMHdoSSZbERcGZiKkkftZ","nid":53741,"title":"DOVO ontmijnt","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"p2Bsc9dlBSPLbaZ9YIiiR7lN","nid":53741,"title":"Wapenstilstand","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"e1ZUFfemPXwfkZhsL3cPWxuU","nid":53741,"title":"11 november","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"O2fOlHTJZTNTeTYj2Z0P61oc","nid":116301,"title":"1. Marc De Bel drinkt biomelk","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"x1ZIMMNO5JZUXLKFWhorWWV6","nid":116301,"title":"2. De Miss Griezelverkiezing'' van Marc De Bel","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"vyeR8faUqJMbRYfQDpCT25cE","nid":116301,"title":"3. Marc De Bel stelt nieuw boek voor ''Kapitein Cacao''","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"mKSOcnmbjxNcOWXVRJsIO0GZ","nid":116301,"title":"4. Opname van jeugdfilm ''Blinker en de bakfietsbioscoop''","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"c1ASsMRNQbKmWQQNXl9E2J1R","nid":116301,"title":"5. Boeboeks","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"V1INNUlfpVgunOfOnSZh1qx1","nid":532741,"title":"Onze ruimte: planeten om de zon","collection_id":"iXJHIaKVMXZWGKhdmiaFZVJO","col_title":"zon"}]',
+          description: "users favourite assets"},dates]
+    /active:
+      get:
+        description: "check if user is active"
+        is: [responses-all: {
+          example200: '"data":{"status":"active","last-active":"2000-01-01T00:00:00"}',
+          description: "check if user is active"},dates]
+/users:
+  /roles:
+    get:
+      description: "get different roles"
+      is: [responses-all: {
+        example200: '"data":{"1":"anonymous user","2":"authenticated user","21":"Content beheerder","31":"Docent","41":"Platform beheerder","51":"Student","61":"Testgebruiker onderwijs","71":"Testgebruiker viaa","81":"administrator"}',
+        description: "get different roles"}]
+  /count:
+    get:
+      description: "count users/role"
+      is: [responses-all: {
+        example200: '"data":{"administrator":25,"Testgebruiker viaa":57,"Testgebruiker onderwijs":78,"Student":15178,"Platform beheerder":1,"Docent":17008,"Content beheerder":1}',
+        description: "count users/role"},dates]
+    /active:
+      get:
+        description: "count how many users were active in daterange"
+        is: [responses-all: {
+          example200: '"data":{"Docent":16787,"Student":8123,"Testgebruiker onderwijs":78,"Testgebruiker viaa":57,"administrator":25}',
+          description: "count how many users were active in daterange"},dates]
+    /registered:
+      get:
+        description: "count how many users registered in daterange"
+        is: [responses-all: {
+          example200: '"data":{"administrator":25,"Docent":16787,"Student":8123,"Testgebruiker onderwijs":78,"Testgebruiker viaa":57}',
+          description: "count how many users registered in daterange"},dates]
+    /conversions:
+      get:
+        description: "get google analyitcs info of user conversions - TODO"
+        is: [responses-all: {
+          example200: '"data":{"ratio": "4.619299275787825"}',
+          description: "get google analyitcs info of user conversions"},dates]
+  /export:
+    get:
+      description: "Export the users registered in AvO"
+      queryParameters: 
+        format:
+          description: "The format of the response"
+          enum: [CSV, JSON]
+        slack:
+          description: "The slack user to send a notification to"
+          example: "@johndoe"
+        email:
+          description: "The email address to send a notification to"
+          example: "john.doe@example.com"
+      is: [responses-all: {
+          example200: '"data":{"ratio": "4.619299275787825"}',
+          description: "get google analyitcs info of user conversions"},dates]
+/report:
+  /ams:
+    get:
+      description: "Get all registered assets for a content provider within a specific period from AMS"
+      queryParameters: 
+        cp:
+          description: "The content provider"
+          pattern: "OR-[A-Za-z0-9]{7}"
+        gran:
+          description: "The granularity"
+          enum: [all-time, last-year, last-month, last-week, last-day]
+      is: [responses-all: {
+        example200: '"data":{"favourites":"1"}',
+        description: "Get all registered assets for a content provider within a specific period from AMS"}]
+  /mam:
+    get:
+      description: "Get all registered assets for a content provider within a specific period from MAM"
+      queryParameters: 
+        cp:
+          description: "The content provider"
+          pattern: "OR-[A-Za-z0-9]{7}"
+        gran:
+          description: "The granularity"
+          enum: [all-time, last-year, last-month, last-week, last-day]
+      is: [responses-all: {
+        example200: '"data":{"favourites":"1"}',
+        description: "Get all registered assets for a content provider within a specific period from MAM"}]
+  /global:
+    get:
+      description: "Create a global report for a content provider"
+      queryParameters: 
+        cp:
+          description: "The content provider"
+          pattern: "OR-[A-Za-z0-9]{7}"
+      is: [responses-all: {
+        example200: '"data":{"favourites":"1"}',
+        description: "Create a global report for a content provider"}]
+/vrt:
+  /delay:
+    get:
+      description: "Gets the current delay on the VRT ingest"
+      is: [responses-all: {
+        example200: '"data":{"favourites":"1"}',
+        description: "Gets the current delay on the VRT ingest"}]
+  /{id}:
+    uriParameters: 
+      id:
+        description: "The pid or media_id of the asset"
+        required: true
+        example: "x34mk6vd1v"
+    get:
+      description: "Get the ingest status based on the pid or media id"
+      is: [responses-all: {
+        example200: '"data":[]',
+        description: "Get the ingest status based on the pid or media id"}]
