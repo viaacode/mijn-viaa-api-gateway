@@ -8,6 +8,12 @@ traits:
 
 /asset:
   /{pid}:
+    uriParameters: 
+        pid:
+          description: "The pid of the asset"
+          pattern: "[A-Za-z0-9]{10}"
+          example: 6m33208w27
+          required: true
     get:
       description: "Get asset's info based on pid"
       is: [responses-all: {
@@ -16,6 +22,8 @@ traits:
     /{type}:
       uriParameters: 
         type: 
+          description: "The type of information to retrieve"
+          example: "plays"
           enum: [favorites, plays, views, still, media]
       get:
         description: Get assets {info} based on pid
@@ -23,6 +31,12 @@ traits:
           example200: '"data":{"plays":"0"}',
           description: "Get assets {info} based on pid"}]
   /mm/{id}:
+    uriParameters: 
+      id: 
+        description: "The mediamosa id of the asset"
+        required: true
+        example: e1NCVSPPlZ6X9b5ocK5U9b7G
+        minLength: 1
     get:
       description: "Get asset's info based on asset_id"
       is: [responses-all: {
@@ -31,6 +45,8 @@ traits:
     /{type}:
       uriParameters: 
         type: 
+          description: "The type of information to retrieve"
+          example: "plays"
           enum: [favorites, plays, views, still, media]
       get:
         description: "Get asset's favorites based on asset_id"
@@ -47,6 +63,7 @@ traits:
     /{type}:
       uriParameters: 
           type: 
+            description: "The type of asset"
             enum: [video, audio, collectie, thema]
       get:
         description: "Count all assets of type: video/adio/collectie/thema"
@@ -62,6 +79,7 @@ traits:
     /{type}:
       uriParameters: 
         type: 
+          description: "The type of asset"
           enum: [video, audio, collectie, thema]
       get:
         description: "find most recent of type: video/adio/collectie/thema"
@@ -77,6 +95,7 @@ traits:
     /{type}:
       uriParameters: 
         type: 
+          description: "The type of asset"
           enum: [video, audio, collectie, thema]
       get:
         description: "find most viewed of type: video/adio/collectie/thema - ON HOLD. WILL RETURN NOTHING"
@@ -92,6 +111,7 @@ traits:
     /{type}:
       uriParameters: 
         type: 
+          description: "The type of asset"
           enum: [video, audio, collectie, thema]
       get:
         description: "find most favorited of type: video/adio/collectie/thema"
@@ -100,6 +120,11 @@ traits:
           description: "find most favorited of type: video/adio/collectie/thema"}]
 /user:
   /{uid}:
+    uriParameters: 
+      uid: 
+        description: "The ID of the user"
+        required: true
+        pattern: "[0-9]+"
     get:
         description: "Get user information based on uid"
         is: [responses-all: {
@@ -315,6 +340,7 @@ traits:
       id:
         description: "The pid or media_id of the asset"
         required: true
+        pattern: "[A-Za-z0-9]+"
         example: "x34mk6vd1v"
     get:
       description: "Get the ingest status based on the pid or media id"
