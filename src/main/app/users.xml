@@ -253,7 +253,7 @@ FROM
         LEFT JOIN
     users_roles ur ON ur.uid = u.uid
     AND u.created &gt;= 1473897600
-        JOIN
+        LEFT JOIN
     role r ON r.rid = ur.rid
         LEFT JOIN
     profile p ON p.uid = u.uid
