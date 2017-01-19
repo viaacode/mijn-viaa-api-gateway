@@ -13,7 +13,6 @@ http://www.springframework.org/schema/beans http://www.springframework.org/schem
 http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
 
 	<flow name="get:/vrt/delay:api-config">
-        <http:listener config-ref="api-httpListenerConfig" path="/vrt/delay" doc:name="/api/vrt/delay" allowedMethods="GET"/>
         <set-variable variableName="description" value="Gets the current delay on the VRT ingest" doc:name="Set description"/>
         <set-payload value="select to_timestamp((sum(extract(epoch from start)) / count(1))) gemiddelde_starttijd, sum(duur)/count(1) gemiddelde_duur
 from (
@@ -39,7 +38,6 @@ lookup("create_response", payload[0])]]></dw:set-payload>
         </dw:transform-message>
     </flow>
 <flow name="get:/vrt/{id}:api-config">
-       <http:listener config-ref="api-httpListenerConfig" path="/vrt/*" allowedMethods="GET" doc:name="/api/vrt/id (pid or media_id)"/>
         <set-variable variableName="description" value="Get the ingest status based on the pid or media id" doc:name="Set description"/>
        <logger message="Received request for /api/vrt/ #[flowVars.id]" level="INFO" doc:name="Logger"/>
         <set-payload value="select media_id, pid, status
