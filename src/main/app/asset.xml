@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:objectstore="http://www.mulesoft.org/schema/mule/objectstore" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
 	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
 	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
@@ -8,16 +8,41 @@
 	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
 http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
 http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
-http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
-http://www.mulesoft.org/schema/mule/objectstore http://www.mulesoft.org/schema/mule/objectstore/current/mule-objectstore.xsd
-http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
-
-<flow name="get:asset/{pid}/{info}">
-        <http:listener config-ref="api-httpListenerConfig" path="asset/{pid}/{info}" allowedMethods="get" doc:name="HTTP"/>
-        <set-variable variableName="pid" value="#[message.inboundProperties.'http.uri.params'.pid]" doc:name="var pid"/>
-        <set-variable variableName="link" value="/asset?cql=dc.identifier%3D%22#[flowVars.pid]%22" doc:name="var link"/>
-        <set-variable variableName="info" value="#[message.inboundProperties.'http.uri.params'.info]" doc:name="var info"/>
-        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+    <flow name="get:/asset/{pid}:api-config">
+        <set-variable doc:name="Set description" value="Get asset's info based on pid" variableName="description"/>
+        <set-variable variableName="link" value="/asset?cql=viaa_pid%3D%22#[flowVars.pid]%22" doc:name="var link"/>
+        
+        <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
+        <dw:transform-message doc:name="Copy_of_var count">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+            <dw:set-variable variableName="count"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.response.header.item_count]]></dw:set-variable>
+        </dw:transform-message>
+        <choice doc:name="Copy_of_Choice_assets_found">
+            <when expression="#[flowVars.count &gt; 0]">
+                <dw:transform-message doc:name="Copy_of_output">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", payload.response.items.item)]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <flow-ref name="throw404" doc:name="Copy_of_throw404"/>
+            </otherwise>
+        </choice>
+    </flow>
+    
+    <flow name="get:/asset/{pid}/{type}:api-config">
+        <set-variable doc:name="Set description" value="Get #[flowVars.type] from asset based on pid" variableName="description"/>
+        <set-variable variableName="link" value="/asset?cql=viaa_pid%3D%22#[flowVars.pid]%22" doc:name="var link"/>
+        
         <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
         <dw:transform-message doc:name="var count">
             <dw:set-payload><![CDATA[%dw 1.0
@@ -29,169 +54,103 @@ payload]]></dw:set-payload>
 ---
 payload.response.header['item_count']]]></dw:set-variable>
         </dw:transform-message>
-        <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
+        
         <choice doc:name="Choice_pid_found">
             <when expression="#[flowVars.count &gt; 0]">
                 <choice doc:name="Choice_search_criteria">
-                    <when expression="#[flowVars.info == 'plays']">
+                    <when expression="#[flowVars.type == 'plays']">
                         <dw:transform-message doc:name="plays">
                             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'] ,
-        "description": "Mogelijke gebruikersrollen in AvO.",
-        "success":"All went well, and (usually) some data was returned.",
-        "result_count": sizeOf payload,
-        "sources": ["mediamosa"]
-	},
-	"data": {
-		(flowVars['info'] as :string) : payload.response.items.item.played
-	}
-}]]></dw:set-payload>
+lookup("create_response", {
+	(flowVars['type'] as :string) : payload.response.items.item.played
+})]]></dw:set-payload>
                         </dw:transform-message>
                     </when>
-                    <when expression="#[flowVars.info == 'views']">
+                    <when expression="#[flowVars.type == 'views']">
                         <dw:transform-message doc:name="views">
                             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'] ,
-        "description": "Aantals views van asset",
-        "success":"All went well, and (usually) some data was returned.",
-        "sources": ["mediamosa"]
-	},
-	"data": {
-		(flowVars['info'] as :string) : payload.response.items.item.viewed
-	}
-}]]></dw:set-payload>
+lookup("create_response", {
+	(flowVars['type'] as :string) : payload.response.items.item.viewed
+})]]></dw:set-payload>
                         </dw:transform-message>
                     </when>
-                    <when expression="#[flowVars.info == 'still']">
+                    <when expression="#[flowVars.type == 'still']">
                         <dw:transform-message doc:name="still">
                             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'] ,
-        "description": "Still van de asset",
-        "success":"All went well, and (usually) some data was returned.",
-        "sources": ["mediamosa"]
-	},
-	"data": {
-		(flowVars['info'] as :string) : payload.response.items.item.vpx_still_url
-	}
-}]]></dw:set-payload>
+lookup("create_response", {
+	(flowVars['type'] as :string) : payload.response.items.item.vpx_still_url
+})]]></dw:set-payload>
                         </dw:transform-message>
                     </when>
-                    <when expression="#[flowVars.info == 'media']">
+                    <when expression="#[flowVars.type == 'media']">
                         <dw:transform-message doc:name="media">
                             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'] ,
-        "description": "Gebruikte Media",
-        "success":"All went well, and (usually) some data was returned.",
-        "sources": ["mediamosa"]
-	},
-	"data": {
-		(flowVars['info'] as :string) : payload.response.items.item.mediafile.filename
-	}
-}]]></dw:set-payload>
+lookup("create_response", {
+	(flowVars['type'] as :string) : payload.response.items.item.mediafile_filename
+})]]></dw:set-payload>
                         </dw:transform-message>
                     </when>
-                    <when expression="#[flowVars.info == 'favorites']">
+                    <when expression="#[flowVars.type == 'favorites']">
                         <dw:transform-message doc:name="favorites">
                             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'] ,
-        "description": "Meest favorite asset",
-        "success":"All went well, and (usually) some data was returned.",
-        "sources": ["mediamosa"]
-	},
-	"data": {
-		(flowVars['info'] as :string) : payload.response.items.item.is_favorite
-	}
-}]]></dw:set-payload>
+lookup("create_response", {
+	(flowVars['type'] as :string) : payload.response.items.item.is_favorite
+})]]></dw:set-payload>
                         </dw:transform-message>
                     </when>
                     <otherwise>
-                        <set-variable variableName="message" value="#[&quot;No results on search query /&quot; + flowVars.info]" doc:name="var message"/>
-                        <dw:transform-message doc:name="fail message">
-                            <dw:set-payload><![CDATA[%dw 1.0
-%output application/json
----
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'] ,
-        "fail":  flowVars['message'],
-        "sources": ["mediamosa"]
-	}
-}]]></dw:set-payload>
-                        </dw:transform-message>
+                        <flow-ref name="throw404" doc:name="throw404"/>
                     </otherwise>
                 </choice>
             </when>
             <otherwise>
-                <dw:transform-message doc:name="fail message">
+                <flow-ref name="throw404" doc:name="throw404"/>
+            </otherwise>
+        </choice>
+    </flow>
+
+	<flow name="get:/asset/mm/{id}:api-config">
+        <set-variable doc:name="Set description" value="Get asset's info based on asset_id" variableName="description"/>
+        
+        <set-variable variableName="link" value="/asset/#[flowVars.id]" doc:name="var link"/>
+        <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
+        <dw:transform-message doc:name="Copy_of_Copy_of_var count">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+            <dw:set-variable variableName="count"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.response.header.item_count]]></dw:set-variable>
+        </dw:transform-message>
+        <choice doc:name="Copy_of_Copy_of_Choice_assets_found">
+            <when expression="#[flowVars.count &gt; 0]">
+                <dw:transform-message doc:name="Copy_of_Copy_of_output">
                     <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path":flowVars['path'],
-        "fail": "No results on current pid",
-        "sources": ["mediamosa"]
-	}
-}]]></dw:set-payload>
+lookup("create_response", payload.response.items.item)]]></dw:set-payload>
                 </dw:transform-message>
+            </when>
+            <otherwise>
+                <flow-ref name="throw404" doc:name="Copy_of_Copy_of_throw404"/>
             </otherwise>
         </choice>
-        <catch-exception-strategy doc:name="Catch Exception Strategy">
-            <set-variable variableName="fail" value="#[exception.cause.message]" doc:name="var fail"/>
-            <dw:transform-message doc:name="fail message">
-                <dw:set-payload><![CDATA[%dw 1.0
-%output application/json
----
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'] ,
-        "status":{
-	        "fail":"There was a problem with the data submitted, or some pre-condition of the API call wasn't satisfied (e.g. date formatting is off)",
-    		"message":flowVars['fail']    	
-        },
-        "sources": ["avo"]
-	}
-}]]></dw:set-payload>
-            </dw:transform-message>
-        </catch-exception-strategy>
-
-
     </flow>
-    
-    
-    <flow name="get:asset/mm/{id}/{info}">
-        <http:listener config-ref="api-httpListenerConfig" path="asset/mm/{id}/{info}" allowedMethods="get" doc:name="HTTP"/>
-        <set-variable variableName="id" value="#[message.inboundProperties.'http.uri.params'.id]" doc:name="var id"/>
+    <flow name="get:/asset/mm/{id}/{type}:api-config">
+        <set-variable doc:name="Set description" value="Get #[flowVars.type] from asset based on asset_id" variableName="description"/>
         <set-variable variableName="link" value="/asset/#[flowVars.id]" doc:name="var link"/>
-        <set-variable variableName="info" value="#[message.inboundProperties.'http.uri.params'.info]" doc:name="var info"/>
         <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
         <dw:transform-message doc:name="var count">
             <dw:set-payload><![CDATA[%dw 1.0
@@ -203,256 +162,81 @@ payload]]></dw:set-payload>
 ---
 payload.response.header.item_count]]></dw:set-variable>
         </dw:transform-message>
-        <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
+        
+        
         <choice doc:name="Choice_asset_found">
             <when expression="#[flowVars.count &gt; 0]">
                 <choice doc:name="Choice_search_criteria">
-                    <when expression="#[flowVars.info == 'plays']">
+                    <when expression="#[flowVars.type == 'plays']">
                         <dw:transform-message doc:name="plays">
                             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'] ,
-        "description": "Mogelijke gebruikersrollen in AvO.",
-        "status": "success",
-        "result_count": sizeOf payload,
-        "sources": ["mediamosa"]
-	},
-	"data": {
-		(flowVars['info'] as :string) : payload.response.items.item.played
-	}
-}]]></dw:set-payload>
+lookup("create_response", {
+	(flowVars['type'] as :string) : payload.response.items.item.played
+})]]></dw:set-payload>
                         </dw:transform-message>
                     </when>
-                    <when expression="#[flowVars.info == 'views']">
+                    <when expression="#[flowVars.type == 'views']">
                         <dw:transform-message doc:name="views">
                             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'] ,
-        "description": "Aantals views van asset",
-        "status": "success",
-        "sources": ["mediamosa"]
-	},
-	"data": {
-		(flowVars['info'] as :string) : payload.response.items.item.viewed
-	}
-}]]></dw:set-payload>
+lookup("create_response", {
+	(flowVars['type'] as :string) : payload.response.items.item.viewed
+})]]></dw:set-payload>
                         </dw:transform-message>
                     </when>
-                    <when expression="#[flowVars.info == 'still']">
+                    <when expression="#[flowVars.type == 'still']">
                         <dw:transform-message doc:name="still">
                             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'] ,
-        "description": "Still van de asset",
-        "status": "success",
-        "sources": ["mediamosa"]
-	},
-	"data": {
-		(flowVars['info'] as :string) : payload.response.items.item.vpx_still_url
-	}
-}]]></dw:set-payload>
+lookup("create_response", {
+	(flowVars['type'] as :string) : payload.response.items.item.vpx_still_url
+})]]></dw:set-payload>
                         </dw:transform-message>
                     </when>
-                    <when expression="#[flowVars.info == 'media']">
+                    <when expression="#[flowVars.type == 'media']">
                         <dw:transform-message doc:name="media">
                             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'] ,
-        "description": "Gebruikte Media",
-        "success":"All went well, and (usually) some data was returned.",
-        "sources": ["mediamosa"]
-	},
-	"data": {
-		(flowVars['info'] as :string) : payload.response.items.item.mediafile.filename
-	}
-}]]></dw:set-payload>
+lookup("create_response", {
+	(flowVars['type'] as :string) : payload.response.items.item.mediafile_filename
+})]]></dw:set-payload>
                         </dw:transform-message>
                     </when>
-                    <when expression="#[flowVars.info == 'favorites']">
+                    <when expression="#[flowVars.type == 'favorites']">
                         <dw:transform-message doc:name="favorites">
                             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars["path"] ,
-        "description": "Meest favorite asset",
-        "success":"All went well, and (usually) some data was returned.",
-        "sources": ["mediamosa"]
-	},
-	"data": {
-		(flowVars['info'] as :string) : payload.response.items.item.is_favorite
-	}
-}]]></dw:set-payload>
+lookup("create_response", {
+	(flowVars['type'] as :string) : payload.response.items.item.is_favorite
+})]]></dw:set-payload>
                         </dw:transform-message>
                     </when>
                     <otherwise>
-                        <set-variable variableName="message" value="#['No results on search query /' +flowVars.info]" doc:name="var message"/>
-                        <dw:transform-message doc:name="fail message">
-                            <dw:set-payload><![CDATA[%dw 1.0
-%output application/json
----
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'] ,
-        "fail": flowVars['message'],
-        "sources": ["mediamosa"]
-	}
-}]]></dw:set-payload>
-                        </dw:transform-message>
+                        <flow-ref name="throw404" doc:name="throw404"/>
                     </otherwise>
                 </choice>
             </when>
             <otherwise>
-                <dw:transform-message doc:name="fail message">
-                    <dw:set-payload><![CDATA[%dw 1.0
-%output application/json
----
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path":flowVars['path'],
-        "fail": "No results on current id",
-        "sources": ["mediamosa"]
-	}
-}]]></dw:set-payload>
-                </dw:transform-message>
+                <flow-ref name="throw404" doc:name="throw404"/>
             </otherwise>
         </choice>
-
-
     </flow>
-    <flow name="get:asset/{pid}">
-        <http:listener config-ref="api-httpListenerConfig" path="asset/{pid}" allowedMethods="get" doc:name="HTTP"/>
-        <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="pid" value="#[message.inboundProperties.'http.uri.params'.pid]" doc:name="var pid"/>
-        <set-variable variableName="link" value="/asset?cql=dc.identifier%3D%22#[flowVars.pid]%22" doc:name="var link"/>
-        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
-        <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
-        <dw:transform-message doc:name="output">
-            <dw:set-payload><![CDATA[%dw 1.0
-%output application/json
----
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars["path"] ,
-        "description": "asset",
-        "success":"All went well, and (usually) some data was returned.",
-        "sources": ["mediamosa"]
-	},
-	"data": payload.response.items.item
-}]]></dw:set-payload>
-        </dw:transform-message>
-        <catch-exception-strategy doc:name="Catch Exception Strategy">
-            <set-variable variableName="fail" value="#[exception.cause.message]" doc:name="var fail"/>
-            <dw:transform-message doc:name="fail message">
-                <dw:set-payload><![CDATA[%dw 1.0
-%output application/json
----
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'] ,
-        "fail":flowVars['fail'],
-        "sources": ["avo"]
-	}
-}]]></dw:set-payload>
-            </dw:transform-message>
-        </catch-exception-strategy>
-
-    </flow>
-
-    <flow name="get:asset/mm/{id}">
-        <http:listener config-ref="api-httpListenerConfig" path="/asset/mm/{id}" doc:name="HTTP" allowedMethods="get"/>
-        <set-variable variableName="id" value="#[message.inboundProperties.'http.uri.params'.id]" doc:name="var id"/>
-        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
-        <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <flow-ref name="ref:/asset/mm/{id}" doc:name="ref:/asset/mm/{id}"/>
-        <dw:transform-message doc:name="output">
-            <dw:set-payload><![CDATA[%dw 1.0
-%output application/json
----
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars["path"] ,
-        "description": "asset",
-        "success":"All went well, and (usually) some data was returned.",
-        "sources": ["mediamosa"]
-	},
-	"data": payload.response.items.item
-}]]></dw:set-payload>
-        </dw:transform-message>
-        <catch-exception-strategy doc:name="Catch Exception Strategy">
-            <set-variable variableName="fail" value="#[exception.cause.message]" doc:name="var fail"/>
-            <dw:transform-message doc:name="fail message">
-                <dw:set-payload><![CDATA[%dw 1.0
-%output application/json
----
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'] ,
-        "status":flowVars['fail'],
-        "sources": ["avo"]
-	}
-}]]></dw:set-payload>
-            </dw:transform-message>
-        </catch-exception-strategy>
-
-    </flow>
-    <sub-flow name="ref:/asset/mm/{id}">
-        <set-variable variableName="link" value="/asset/#[flowVars.id]" doc:name="var link"/>
-        <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
-        <dw:transform-message doc:name="var count">
-            <dw:set-payload><![CDATA[%dw 1.0
-%output application/java
----
-payload]]></dw:set-payload>
-            <dw:set-variable variableName="count"><![CDATA[%dw 1.0
-%output application/java
----
-payload.response.header.item_count]]></dw:set-variable>
-        </dw:transform-message>
-        <dw:transform-message doc:name="Transform Message">
-            <dw:set-payload><![CDATA[%dw 1.0
-%output application/java
----
-payload]]></dw:set-payload>
-            <dw:set-variable variableName="asset_id"><![CDATA[%dw 1.0
-%output application/json
----
-assetid:payload.response.items.item.asset_id]]></dw:set-variable>
-            <dw:set-variable variableName="asset"><![CDATA[%dw 1.0
-%output application/json
----
-payload.response.items.item]]></dw:set-variable>
-        </dw:transform-message>
-
-    </sub-flow>
     <flow name="get:/getassets(usedForGettingAssets)">
         <http:listener config-ref="api-httpListenerConfig" path="/getassets" allowedMethods="get" doc:name="HTTP"/>
         <set-variable variableName="link" value="/asset" doc:name="var link"/>
         <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+lookup("create_response", payload)]]></dw:set-payload>
+        </dw:transform-message>
     </flow>
+
 </mule>

@@ -1,31 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml" xmlns:objectstore="http://www.mulesoft.org/schema/mule/objectstore"
-	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
 	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
 	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/objectstore http://www.mulesoft.org/schema/mule/objectstore/current/mule-objectstore.xsd
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
 http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
 http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
 http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
-http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
-http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
-http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
-http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd
-http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
-http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
 
- 	<flow name="get:/user/{uid}:api-config">
-        <http:listener config-ref="api-httpListenerConfig" path="/user/{uid}" doc:name="HTTP"/>
-        <set-variable variableName="uid" value="#[message.inboundProperties.'http.uri.params'.uid]" doc:name="var-uid"/>
-        <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
-        <set-variable variableName="isPrivate" value="#[0]" doc:name="var isPrivate"/>
-        <set-variable variableName="notPrivate" value="#[0]" doc:name="var notPrivate"/>
-        <db:select config-ref="MySQL_Configuration" doc:name="Get user information">
-            <db:parameterized-query><![CDATA[SELECT 
+	<flow name="get:/user/{uid}:api-config">
+        <set-variable variableName="description" value="Get user information based on uid" doc:name="Set description"/>
+        <set-payload doc:name="Set Payload" value="SELECT 
     u.uid,
     p.pid,
     u.name naam,
@@ -65,132 +54,78 @@ FROM
 WHERE
     u.uid = #[flowVars.uid]
 GROUP BY u.uid
-order by u.created desc]]></db:parameterized-query>
-        </db:select>
+order by u.created desc"/>
+
+        <flow-ref name="ref:avo-call" doc:name="ref:avo-call"/>
         <dw:transform-message doc:name="output">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-using ( info=payload[0]){
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'],
-	    "description": "Gebuiker informatie",
-	    "success":"All went well, and (usually) some data was returned.",
-	    "sources": ["avo"]
-	},
-	"data": {(payload)}
-}]]></dw:set-payload>
+lookup("create_response", payload[0])]]></dw:set-payload>
         </dw:transform-message>
-
-        
-        
     </flow>
-
     <flow name="get:/user/{uid}/active:api-config">
-        <http:listener config-ref="api-httpListenerConfig" path="/user/{uid}/active" allowedMethods="get" doc:name="HTTP"/>
-        <set-variable variableName="uid" value="#[message.inboundProperties.'http.uri.params'.uid]" doc:name="var-uid"/>
-        <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
-        <db:select config-ref="MySQL_Configuration" doc:name="Database">
-            <db:parameterized-query><![CDATA[select status, FROM_UNIXTIME(access) as last from users where uid = #[flowVars.uid]]]></db:parameterized-query>
-        </db:select>
+        <set-variable variableName="description" value="Check if user is active based on uid" doc:name="Set description"/>
+        <set-payload doc:name="Set Payload" value="select status, FROM_UNIXTIME(access) as last from users where uid = #[flowVars.uid]"/>
+        <flow-ref name="ref:avo-call" doc:name="ref:avo-call"/>
         <dw:transform-message doc:name="output">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-using ( info=payload[0]){
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'],
-	    "description": "Gerbuiker collection aantal",
-	    "success":"All went well, and (usually) some data was returned.",
-        "result_count": sizeOf payload,
-	    "sources": ["avo"]
-	},
-	"data": 
-	{"status":"active" when info.status == 1
-	otherwise
-	"non-active",
-	"last-active":info.last
+lookup("create_response", 
+	{
+		"status":"active" when payload[0].status == 1 otherwise "non-active",
+		"last-active": payload[0].last
 	}
-}]]></dw:set-payload>
+)]]></dw:set-payload>
         </dw:transform-message>
-
-
     </flow>
     <flow name="get:/user/{uid}/collections:api-config">
-        <http:listener config-ref="api-httpListenerConfig" path="/user/{uid}/collections" allowedMethods="get" doc:name="HTTP"/>
-        <set-variable variableName="uid" value="#[message.inboundProperties.'http.uri.params'.uid]" doc:name="var-uid"/>
-        <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
-        <db:select config-ref="MySQL_Configuration" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT asset_id collection_id, n.nid , ass.field_assets_asset_reference title, ass.field_assets_asset_reference_id video_asset,title col_title
+        <set-variable variableName="description" value="Get users collections based on uid" doc:name="Set description"/>
+        <set-payload doc:name="Set Payload" value="SELECT asset_id collection_id, n.nid , ass.field_assets_asset_reference title, ass.field_assets_asset_reference_id video_asset,title col_title
 FROM node n
 JOIN mediamosa_collection_mapping mc ON n.nid = mc.nid
 JOIN field_data_field_assets ass ON ass.entity_id = mc.nid
 WHERE n.uid = #[flowVars.uid]
-AND n.type = 'collectie']]></db:parameterized-query>
-
-        </db:select>
-
-
+AND n.type = 'collectie'"/>
+        <flow-ref name="ref:avo-collection-call" doc:name="ref:avo-collection-call"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+            <dw:set-variable variableName="total"><![CDATA[%dw 1.0
+%output application/java
+---
+sizeOf payload]]></dw:set-variable>
+        </dw:transform-message>
         <dw:transform-message doc:name="output">
+            <dw:input-payload/>
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
-%var info = flowVars['info'] splitBy "|"
 ---
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'],
-	    "description": "Gerbuiker collection aantal",
-	    "success":"All went well, and (usually) some data was returned.",
-        "result_count": sizeOf payload,
-	    "sources": ["avo"]
-	},
-	"data": payload groupBy $.col_title
-}]]></dw:set-payload>
+lookup("create_response", payload)]]></dw:set-payload>
         </dw:transform-message>
-
-
     </flow>
-
-
     <flow name="get:/user/{uid}/favorites:api-config">
-        <http:listener config-ref="api-httpListenerConfig" path="/user/{uid}/favorites" doc:name="HTTP"/>
-        <set-variable variableName="uid" value="#[message.inboundProperties.'http.uri.params'.uid]" doc:name="var-uid"/>
-        <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
-        <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="var path"/>
-        <db:select config-ref="MySQL_Configuration" doc:name="Database">
-            <db:parameterized-query><![CDATA[select asset_id collection_id, n.nid , ass.field_assets_asset_reference title, title col_title from node n
+        <set-variable variableName="description" value="Get users favorites based on uid" doc:name="Set description"/>
+        <set-payload doc:name="Set Payload" value="select asset_id collection_id, n.nid , ass.field_assets_asset_reference title, title col_title from node n
 join mediamosa_collection_mapping mc on n.nid = mc.nid
 join field_data_field_assets ass on ass.entity_id = mc.nid
 where n.uid = #[flowVars.uid]
 and n.type = 'collectie'
 and n.title = 'favourite'
-and n.status = 0]]></db:parameterized-query>
+and n.status = 0"/>
 
-        </db:select>
+        <flow-ref name="ref:avo-collection-call" doc:name="ref:avo-collection-call"/>
         <dw:transform-message doc:name="output">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 %var info = flowVars['info'] splitBy "|"
 ---
-{
-	"header": {
-		"timestamp": flowVars['getMilli'],
-		"path": flowVars['path'],
-	    "description": "Gerbuiker collection aantal",
-	    "success":"All went well, and (usually) some data was returned.",
-        "result_count": sizeOf payload,
-	    "sources": ["avo"]
-	},
-	"data": payload groupBy $.col_title
-}]]></dw:set-payload>
+lookup("create_response", (payload groupBy $.col_title)
+)]]></dw:set-payload>
         </dw:transform-message>
-
-
     </flow>
 
 </mule>

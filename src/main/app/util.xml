@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:schedulers="http://www.mulesoft.org/schema/mule/schedulers" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:objectstore="http://www.mulesoft.org/schema/mule/objectstore"
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml" xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:objectstore="http://www.mulesoft.org/schema/mule/objectstore"
 	xmlns:http="http://www.mulesoft.org/schema/mule/http"
 	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
 	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
@@ -11,9 +11,13 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
 http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
 http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
 http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
 http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
-http://www.mulesoft.org/schema/mule/schedulers http://www.mulesoft.org/schema/mule/schedulers/current/mule-schedulers.xsd">
-    
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd
+http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
 	<sub-flow name="ref:getMilli">
         <set-variable variableName="getMilli" value="#[function:systime]" doc:name="getMilli"/>
     </sub-flow>
@@ -37,7 +41,15 @@ as :string {format: "yyyy-MM-dd 00:00:00"}]]></dw:set-variable>
 as :string {format: "yyyy-MM-dd 00:00:00"}]]></dw:set-variable>
         </dw:transform-message>
     </sub-flow>
+    
     <flow name="ref:http-call">
+        <expression-component doc:name="Add mediamosa as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("mediamosa")) {
+	flowVars.sources.add("mediamosa");
+}]]></expression-component>
         <flow-ref name="checkCookieExists" doc:name="checkCookieExists"/>
         <enricher source="#[payload[1]]" target="#[flowVars.cookie]" doc:name="Message Enricher">
             <objectstore:retrieve config-ref="cookiestore" key="cookie" doc:name="cookie store"/>
@@ -47,11 +59,187 @@ as :string {format: "yyyy-MM-dd 00:00:00"}]]></dw:set-variable>
                 <http:header headerName="cookie" value="#[flowVars.cookie]"/>
             </http:request-builder>
         </http:request>
+        <mulexml:xml-to-dom-transformer doc:name="XML to DOM"/>
+        <set-variable variableName="statuscode" value="#[xpath3(&quot;//*[local-name()='request_result_id']&quot;)]" doc:name="Set statuscode"/>
+        <choice doc:name="Choice">
+            <when expression="#[flowVars.statuscode == '1601']">
+                <logger message="Statuscode 1601 is unauthorized. Request a new cookie, then do the call." level="INFO" doc:name="Logger"/>
+                <flow-ref name="get:/connect" doc:name="get:/connect"/>
+            	<http:request config-ref="HTTP_MM_Request" path="#[flowVars.Link]" method="GET" doc:name="HTTP">
+		            <http:request-builder>
+		                <http:header headerName="cookie" value="#[flowVars.cookie]"/>
+		            </http:request-builder>
+		        </http:request>
+            </when>
+            <otherwise>
+                <logger message="Statuscode was #[flowVars.statuscode]" level="INFO" doc:name="Logger"/>
+            </otherwise>
+        </choice>
     </flow>
+    
+    <flow name="ref:avo-call">
+        <expression-component doc:name="Add AvO as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("AvO")) {
+	flowVars.sources.add("AvO");
+}]]></expression-component>
+        <db:select config-ref="MySQL_Configuration" doc:name="Database">
+            <db:dynamic-query><![CDATA[#[payload]]]></db:dynamic-query>
+        </db:select>
+        <choice doc:name="Choice">
+            <when expression="#[payload.size() &gt; 0]">
+                <logger message="Got #[payload.size()] results from AvO" level="INFO" doc:name="Logger"/>
+            </when>
+            <otherwise>
+                <flow-ref name="throw404" doc:name="throw404"/>
+            </otherwise>
+        </choice>
+    </flow>
+    
+    <flow name="ref:borndigital-call">
+        <expression-component doc:name="Add borndigital as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("borndigital")) {
+	flowVars.sources.add("borndigital");
+}]]></expression-component>
+        <ee:cache doc:name="Cache">
+            <db:select config-ref="Borndigital" doc:name="Database">
+                <db:dynamic-query><![CDATA[#[payload]]]></db:dynamic-query>
+            </db:select>
+        </ee:cache>
+        <choice doc:name="Choice">
+            <when expression="#[payload.size() &gt; 0]">
+                <logger message="Got #[payload.size()] results from borndigital" level="INFO" doc:name="Logger"/>
+            </when>
+            <otherwise>
+                <flow-ref name="throw404" doc:name="throw404"/>
+            </otherwise>
+        </choice>
+    </flow>
+    
+    <flow name="ref:avo-collection-call">
+        <expression-component doc:name="Add AvO as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("AvO")) {
+	flowVars.sources.add("AvO");
+}]]></expression-component>
+        <db:select config-ref="MySQL_Configuration" doc:name="Database">
+            <db:dynamic-query><![CDATA[#[payload]]]></db:dynamic-query>
+        </db:select>
+    </flow>
+    
+    <flow name="ref:ams-call">
+        <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("AMS")) {
+	flowVars.sources.add("AMS");
+}]]></expression-component>
+        <db:select config-ref="AMS_MySQL" doc:name="Database">
+            <db:dynamic-query><![CDATA[#[payload]]]></db:dynamic-query>
+        </db:select>
+        <choice doc:name="Choice">
+            <when expression="#[payload.size() &gt; 0]">
+                <logger message="Got #[payload.size()] results from AMS" level="INFO" doc:name="Logger"/>
+            </when>
+            <otherwise>
+                <flow-ref name="throw404" doc:name="throw404"/>
+            </otherwise>
+        </choice>
+    </flow>
+    
+    <flow name="ref:ams-collection-call">
+        <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("AMS")) {
+	flowVars.sources.add("AMS");
+}]]></expression-component>
+        <db:select config-ref="AMS_MySQL" doc:name="Database">
+            <db:dynamic-query><![CDATA[#[payload]]]></db:dynamic-query>
+        </db:select>
+    </flow>
+    
+    <flow name="ref:mh-call">
+        <expression-component doc:name="Add MAM as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("MAM")) {
+	flowVars.sources.add("MAM");
+}]]></expression-component>
+        <db:select config-ref="Mediahaven_monitoring" doc:name="Database">
+            <db:dynamic-query><![CDATA[#[payload]]]></db:dynamic-query>
+        </db:select>
+        <choice doc:name="Choice">
+            <when expression="#[payload.size() &gt; 0]">
+                <logger message="Got #[payload.size()] results from MH" level="INFO" doc:name="Logger"/>
+            </when>
+            <otherwise>
+                <flow-ref name="throw404" doc:name="throw404"/>
+            </otherwise>
+        </choice>
+    </flow>
+    
+    <flow name="ref:mh-collection-call">
+        <expression-component doc:name="Add MAM as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("MAM")) {
+	flowVars.sources.add("MAM");
+}]]></expression-component>
+        <db:select config-ref="Mediahaven_monitoring" doc:name="Database">
+            <db:dynamic-query><![CDATA[#[payload]]]></db:dynamic-query>
+        </db:select>
+    </flow>
+    
+    <flow name="create_response">
+        <logger message="Creating response with #[payload]" level="INFO" doc:name="Logger"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": flowVars["path"] ,
+        "description": flowVars['description'],
+        "status": "success",
+        "message": "",
+        "statuscode": 200,
+        ("total": flowVars.total) when flowVars.total?,
+        count: ((sizeOf payload) when payload is :array otherwise 1) when payload != null otherwise 0,
+        "sources": flowVars['sources'],
+        (from: flowVars.from) when flowVars.from != null,
+        (until: flowVars.until) when flowVars.until != null
+	},
+	"data": (payload) when (payload != null and (sizeOf payload) > 0 == true) otherwise []
+	
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+        <logger level="INFO" doc:name="Logger"/>
+    </flow>
+    <sub-flow name="throw404">
+        <set-payload value="[#[flowVars.description]] returned no results." doc:name="Returned no results"/>
+        <scripting:component doc:name="Groovy">
+            <scripting:script engine="Groovy"><![CDATA[throw new org.mule.module.apikit.exception.NotFoundException((java.lang.String) payload);]]></scripting:script>
+        </scripting:component>
+        <set-property propertyName="http.status" value="404" doc:name="Property"/>
+    </sub-flow>
     <flow name="checkCookieExists">
         <objectstore:retrieve config-ref="cookiestore" key="cookie" doc:name="See if cookie exists"/>
-        <choice-exception-strategy doc:name="Choice Exception Strategy">
-            <catch-exception-strategy when="#[exception.causedBy(org.mule.api.store.ObjectDoesNotExistException)]" doc:name="Catch Exception Strategy">
+        <choice-exception-strategy doc:name="Choice Exception Strategy" >
+            <catch-exception-strategy when="#[exception.causedBy(org.mule.api.store.ObjectDoesNotExistException)]" doc:name="Catch Exception Strategy" >
                 <flow-ref name="get:/connect" doc:name="get:/connect"/>
             </catch-exception-strategy>
         </choice-exception-strategy>
@@ -64,6 +252,7 @@ as :string {format: "yyyy-MM-dd 00:00:00"}]]></dw:set-variable>
 
     </flow>
     <sub-flow name="ref:mmConnect">
+        <logger message="Getting a new cookie from MM" level="INFO" doc:name="Logger"/>
         <http:request config-ref="HTTP_MM_Request" path="/login" method="POST" doc:name="HTTP">
             <http:request-builder>
                 <http:query-param paramName="dbus" value="AUTH DBUS_COOKIE_SHA1 ${mm.name}"/>
@@ -90,14 +279,38 @@ payload.response.items.item.dbus[11 .. 42]]]></dw:set-variable>
             </http:request-builder>
         </http:request>
     </sub-flow>
-    <flow name="mediamosaPoll">
-        <poll doc:name="Poll">
-            <schedulers:cron-scheduler expression="0 0 12 1/6 * ? *"/>
-            <flow-ref name="ref:mmConnect" doc:name="ref:mmConnect"/>
-        </poll>
-        <logger message="connected" level="INFO" doc:name="Logger"/>
-    </flow>
 
-  
-    
+	<sub-flow name="ldap2mam">
+        <http:request config-ref="ldap2mam_http" path="/api/org" method="GET" doc:name="Request MAM ID at ldap2mam">
+            <http:request-builder>
+                <http:query-param paramName="ldap_id" value="#[flowVars.cp_ldap]"/>
+            </http:request-builder>
+        </http:request>
+        <json:json-to-object-transformer doc:name="JSON to Object"/>
+        <set-variable variableName="cp_mam" value="#[payload.get('data').get('organization').asText()]" doc:name="Set cp_mam"/>
+        <choice doc:name="Is cp_mam VIAA?">
+            <when expression="#[flowVars.cp_mam != 'VIAA']">
+                <logger level="INFO" doc:name="Change nothing"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="cp_mam" value="#[&quot;'&quot;+ '%' + &quot;'&quot;]" doc:name="Set cp_mam to % because cp is VIAA"/>
+            </otherwise>
+        </choice>
+        <set-payload value="#[flowVars.cp_mam]" doc:name="Set Payload"/>
+    </sub-flow>
+    <sub-flow name="CalcAndAddMAMTotal">
+    	<set-variable variableName="mamResult" value="#[payload]" doc:name="Set mamResult (without total)"/>
+                <set-variable variableName="total_archived_amount_ok" value="#[0]" doc:name="Init total_archived_amount_ok"/>
+                <set-variable variableName="total_archived_bytes_ok" value="#[0]" doc:name="Init total_archived_bytes_ok"/>
+                <set-variable variableName="total_archived_amount_nok" value="#[0]" doc:name="Init total_archived_amount_nok"/>
+                <set-variable variableName="total_archived_bytes_nok" value="#[0]" doc:name="Init total_archived_bytes_nok (0)"/>
+                <foreach doc:name="For Each to calc totals">
+                    <set-variable variableName="total_archived_amount_ok" value="#[flowVars.total_archived_amount_ok += payload.archived_amount_ok]" doc:name="Add to total_archived_amount_ok"/>
+                    <set-variable variableName="total_archived_bytes_ok" value="#[flowVars.total_archived_bytes_ok += payload.archived_bytes_ok]" doc:name="Add to total_archived_bytes_ok"/>
+                    <set-variable variableName="total_archived_amount_nok" value="#[flowVars.total_archived_amount_nok += payload.archived_amount_nok]" doc:name="Add to total_archived_amount_nok"/>
+                    <set-variable variableName="total_archived_bytes_nok" value="#[flowVars.total_archived_bytes_nok += payload.archived_bytes_nok]" doc:name="Add to total_archived_amount_nok"/>
+                </foreach>
+                <component class="transformers.AddTotal" doc:name="Java"/>
+    </sub-flow>
+
 </mule>
