@@ -280,7 +280,6 @@ payload]]></dw:set-payload>
                 </otherwise>
             </choice>
             <set-variable variableName="filename" value="avo-users-#[server.dateTime.format(&quot;yyyy_MM_dd__HH_mm_ss&quot;)].#[flowVars.format]" doc:name="Set filename"/>
-            <set-payload value="inhoud" doc:name="Set Payload"/>
             <ftp:outbound-endpoint host="${avo.export.host}" port="${avo.export.port}" path="${avo.export.basepath}" user="${avo.export.user}" password="${avo.export.password}" outputPattern="#[flowVars.filename]" responseTimeout="10000" doc:name="FTP"/>
             <choice doc:name="Send a slack notification?">
                 <when expression="#[flowVars.slack != null &amp;&amp; !flowVars.slack.equals(&quot;&quot;)]">
