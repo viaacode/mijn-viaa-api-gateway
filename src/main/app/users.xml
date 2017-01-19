@@ -276,13 +276,9 @@ WHERE
     #[flowVars.'timerange-clausule']
 GROUP BY u.uid
 order by u.created desc" doc:name="Set Payload"/>
-
-            <logger message="Before Call" level="INFO" doc:name="Logger"/>
             <flow-ref name="ref:avo-collection-call-synchronous" doc:name="ref:avo-collection-call-synchronous"/>
-            <logger message="After call" level="INFO" doc:name="Logger"/>
             <choice doc:name="Choice">
                 <when expression="#[flowVars.format == 'CSV']">
-                    <logger message="#[payload]" level="INFO" doc:name="Logger"/>
                     <dw:transform-message doc:name="To CSV">
                         <dw:set-payload><![CDATA[%dw 1.0
 %output application/csv
@@ -299,7 +295,7 @@ payload]]></dw:set-payload>
                     </dw:transform-message>
                 </otherwise>
             </choice>
-            <logger message="After weave" level="INFO" doc:name="Logger"/>            <set-variable variableName="filename" value="avo-users-#[server.dateTime.format(&quot;yyyy_MM_dd__HH_mm_ss&quot;)].#[flowVars.format]" doc:name="Set filename"/>
+            <set-variable variableName="filename" value="avo-users-#[server.dateTime.format(&quot;yyyy_MM_dd__HH_mm_ss&quot;)].#[flowVars.format]" doc:name="Set filename"/>
             <byte-array-to-string-transformer doc:name="Byte Array to String"/>
             <ftp:outbound-endpoint host="${avo.export.host}" port="${avo.export.port}" path="${avo.export.basepath}" user="${avo.export.user}" password="${avo.export.password}" outputPattern="#[flowVars.filename]" responseTimeout="10000" doc:name="FTP"/>
             <choice doc:name="Send a slack notification?">
