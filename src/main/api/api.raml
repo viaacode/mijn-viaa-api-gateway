@@ -168,7 +168,7 @@ traits:
           description: "The email address to send a notification to"
           example: "john.doe@example.com"
       is: [responses-all: {
-          example200: '"data":{"ratio": "4.619299275787825"}',
+          example200: '"data":{"outcome":"started","format":"JSON","slack":"@johndoe","email":"john.doe@example.com"}',
           description: "get google analyitcs info of user conversions"},dates]
 /report:
   /ams:
@@ -182,7 +182,7 @@ traits:
           description: "The granularity"
           enum: [all-time, last-year, last-month, last-week, last-day]
       is: [responses-all: {
-        example200: '"data":{"favourites":"1"}',
+        example200: '"data":{"total":[{"x":1483434099,"y":1595}],"audio":[{"x":1483434099,"y":1595}],"video":[{"x":1483434099,"y":0}],"paper":[{"x":1483434099,"y":0}],"film":[{"x":1483434099,"y":0}]}',
         description: "Get all registered assets for a content provider within a specific period from AMS"}]
   /mam:
     get:
@@ -195,7 +195,7 @@ traits:
           description: "The granularity"
           enum: [all-time, last-year, last-month, last-week, last-day]
       is: [responses-all: {
-        example200: '"data":{"favourites":"1"}',
+        example200: '"data":{"items":[{"x":1482105600,"y":0},{"x":1482192000,"y":0},{"x":1482278400,"y":0},{"x":1482364800,"y":598},{"x":1482451200,"y":376},{"x":1482537600,"y":621},{"x":1482624000,"y":429},{"x":1482710400,"y":4},{"x":1482796800,"y":0},{"x":1482883200,"y":85},{"x":1482969600,"y":1065},{"x":1483056000,"y":0},{"x":1483142400,"y":0},{"x":1483228800,"y":0},{"x":1483315200,"y":0},{"x":1483401600,"y":1936},{"x":1483488000,"y":1872},{"x":1483574400,"y":336},{"x":1483660800,"y":2156},{"x":1483747200,"y":516},{"x":1483833600,"y":211},{"x":1483920000,"y":1083},{"x":1484006400,"y":2},{"x":1484092800,"y":493},{"x":1484179200,"y":638},{"x":1484265600,"y":363},{"x":1484352000,"y":0},{"x":1484438400,"y":0},{"x":1484524800,"y":1373},{"x":1484611200,"y":76},{"x":1484697600,"y":135},{"x":1484784000,"y":0}],"bytes":[{"x":1482105600,"y":0},{"x":1482192000,"y":0},{"x":1482278400,"y":0},{"x":1482364800,"y":3910316633930},{"x":1482451200,"y":3500747082754},{"x":1482537600,"y":12239982232444},{"x":1482624000,"y":4679568560180},{"x":1482710400,"y":168120087088},{"x":1482796800,"y":0},{"x":1482883200,"y":4012243578646},{"x":1482969600,"y":4632079868858},{"x":1483056000,"y":0},{"x":1483142400,"y":0},{"x":1483228800,"y":0},{"x":1483315200,"y":0},{"x":1483401600,"y":22471125177616},{"x":1483488000,"y":22343940060464},{"x":1483574400,"y":2811797976022},{"x":1483660800,"y":9286361278400},{"x":1483747200,"y":2977156454538},{"x":1483833600,"y":821179244118},{"x":1483920000,"y":3254768709334},{"x":1484006400,"y":10586229296},{"x":1484092800,"y":4824845190694},{"x":1484179200,"y":4480964202138},{"x":1484265600,"y":2107351322887},{"x":1484352000,"y":0},{"x":1484438400,"y":0},{"x":1484524800,"y":4668914695388},{"x":1484611200,"y":168832846472},{"x":1484697600,"y":1388874523358},{"x":1484784000,"y":0}]}',
         description: "Get all registered assets for a content provider within a specific period from MAM"}]
   /global:
     get:
@@ -205,14 +205,110 @@ traits:
           description: "The content provider"
           pattern: "OR-[A-Za-z0-9]{7}"
       is: [responses-all: {
-        example200: '"data":{"favourites":"1"}',
+        example200: '"data":
+          {
+            "registered": {
+                "video": 17934,
+                "audio": 51003,
+                "film": 0,
+                "paper": 0,
+                "total": 68937
+            },
+            "archived": {
+                "video": {
+                    "amount": {
+                        "ok": 221914,
+                        "nok": 500
+                    },
+                    "bytes": {
+                        "ok": 1723706304848077,
+                        "nok": 14381461746970
+                    }
+                },
+                "audio": {
+                    "amount": {
+                        "ok": 17392,
+                        "nok": 19
+                    },
+                    "bytes": {
+                        "ok": 4560979880346,
+                        "nok": 3086470424
+                    }
+                },
+                "unknown": {
+                    "amount": {
+                        "ok": 0,
+                        "nok": 5
+                    },
+                    "bytes": {
+                        "ok": 0,
+                        "nok": 0
+                    }
+                },
+                "document": {
+                    "amount": {
+                        "ok": 0,
+                        "nok": 2
+                    },
+                    "bytes": {
+                        "ok": 0,
+                        "nok": 0
+                    }
+                },
+                "total": {
+                    "amount": {
+                        "ok": 239306,
+                        "nok": 526
+                    },
+                    "bytes": {
+                        "ok": 1728267284728423,
+                        "nok": 14384548217394
+                    }
+                }
+            },
+            "digitised": {
+                "video": {
+                    "ok": 13595,
+                    "nok": 38
+                },
+                "audio": {
+                    "ok": 44549,
+                    "nok": 6
+                },
+                "film": {
+                    "ok": 0,
+                    "nok": 0
+                },
+                "paper": {
+                    "ok": 58144,
+                    "nok": 44
+                },
+                "total": {
+                    "ok": 116288,
+                    "nok": 88
+                }
+            }
+        }',
         description: "Create a global report for a content provider"}]
 /vrt:
   /delay:
     get:
       description: "Gets the current delay on the VRT ingest"
       is: [responses-all: {
-        example200: '"data":{"favourites":"1"}',
+        example200: '"data":
+          {
+            "gemiddelde_starttijd": "2017-01-11T10:14:52",
+            "gemiddelde_duur": {
+              "hours": 8,
+              "months": 0,
+              "minutes": 45,
+              "type": "interval",
+              "years": 0,
+              "seconds": 59.564462,
+              "days": 7,
+              "value": "0 years 0 mons 7 days 8 hours 45 mins 59.564462 secs"
+            }
+          }',
         description: "Gets the current delay on the VRT ingest"}]
   /{id}:
     uriParameters: 
@@ -223,5 +319,10 @@ traits:
     get:
       description: "Get the ingest status based on the pid or media id"
       is: [responses-all: {
-        example200: '"data":[]',
+        example200: '"data":
+        {
+          "pid": "x34mk6vd1v",
+          "media_id": "23rmpl201701161200",
+          "status": "awaitingMetadataUpdate7d"
+        }',
         description: "Get the ingest status based on the pid or media id"}]
