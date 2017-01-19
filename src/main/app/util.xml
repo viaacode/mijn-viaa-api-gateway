@@ -132,6 +132,7 @@ if (!flowVars.sources.contains("AvO")) {
         <db:select config-ref="MySQL_Configuration" doc:name="Database">
             <db:dynamic-query><![CDATA[#[payload]]]></db:dynamic-query>
         </db:select>
+        <logger message="Got #[payload.size()] results" level="INFO" doc:name="Logger"/>
     </flow>
     
     <flow name="ref:ams-call">
@@ -312,5 +313,18 @@ payload.response.items.item.dbus[11 .. 42]]]></dw:set-variable>
                 </foreach>
                 <component class="transformers.AddTotal" doc:name="Java"/>
     </sub-flow>
+    <flow name="ref:avo-collection-call-synchronous" processingStrategy="synchronous">
+        <expression-component doc:name="Copy_of_Add AvO as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("AvO")) {
+	flowVars.sources.add("AvO");
+}]]></expression-component>
+        <db:select config-ref="MySQL_Configuration" doc:name="Copy_of_Database">
+            <db:dynamic-query><![CDATA[#[payload]]]></db:dynamic-query>
+        </db:select>
+        <logger message="Got #[payload.size()] results" level="INFO" doc:name="Copy_of_Logger"/>
+    </flow>
 
 </mule>

@@ -217,7 +217,23 @@ lookup("create_response",
             </otherwise>
         </choice>
         <async doc:name="Async">
-            <set-payload value="SELECT 
+            <flow-ref name="exportUsers" doc:name="exportUsers"/>
+        </async>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+lookup("create_response", {
+	outcome: "started",
+	format: flowVars.format,
+	slack: flowVars.slack,
+	email: flowVars.email
+})]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    
+    <sub-flow name="exportUsers">
+    	            <set-payload value="SELECT 
     u.uid,
     p.pid,
     u.name naam,
@@ -260,9 +276,13 @@ WHERE
     #[flowVars.'timerange-clausule']
 GROUP BY u.uid
 order by u.created desc" doc:name="Set Payload"/>
-            <flow-ref name="ref:avo-collection-call" doc:name="ref:avo-collection-call"/>
+
+            <logger message="Before Call" level="INFO" doc:name="Logger"/>
+            <flow-ref name="ref:avo-collection-call-synchronous" doc:name="ref:avo-collection-call-synchronous"/>
+            <logger message="After call" level="INFO" doc:name="Logger"/>
             <choice doc:name="Choice">
                 <when expression="#[flowVars.format == 'CSV']">
+                    <logger message="#[payload]" level="INFO" doc:name="Logger"/>
                     <dw:transform-message doc:name="To CSV">
                         <dw:set-payload><![CDATA[%dw 1.0
 %output application/csv
@@ -279,7 +299,8 @@ payload]]></dw:set-payload>
                     </dw:transform-message>
                 </otherwise>
             </choice>
-            <set-variable variableName="filename" value="avo-users-#[server.dateTime.format(&quot;yyyy_MM_dd__HH_mm_ss&quot;)].#[flowVars.format]" doc:name="Set filename"/>
+            <logger message="After weave" level="INFO" doc:name="Logger"/>            <set-variable variableName="filename" value="avo-users-#[server.dateTime.format(&quot;yyyy_MM_dd__HH_mm_ss&quot;)].#[flowVars.format]" doc:name="Set filename"/>
+            <byte-array-to-string-transformer doc:name="Byte Array to String"/>
             <ftp:outbound-endpoint host="${avo.export.host}" port="${avo.export.port}" path="${avo.export.basepath}" user="${avo.export.user}" password="${avo.export.password}" outputPattern="#[flowVars.filename]" responseTimeout="10000" doc:name="FTP"/>
             <choice doc:name="Send a slack notification?">
                 <when expression="#[flowVars.slack != null &amp;&amp; !flowVars.slack.equals(&quot;&quot;)]">
@@ -308,19 +329,8 @@ payload]]></dw:set-payload>
                     <logger message="Did not have to send using slack" level="INFO" doc:name="Copy_of_Logger"/>
                 </otherwise>
             </choice>
-        </async>
-        <dw:transform-message doc:name="Transform Message">
-            <dw:set-payload><![CDATA[%dw 1.0
-%output application/java
----
-lookup("create_response", {
-	outcome: "started",
-	format: flowVars.format,
-	slack: flowVars.slack,
-	email: flowVars.email
-})]]></dw:set-payload>
-        </dw:transform-message>
-    </flow>
+    </sub-flow>
+    
         
         <sub-flow name="ref:fail">
         <dw:transform-message doc:name="fail message">
