@@ -159,7 +159,7 @@ lookup("create_response",
     </flow>
 
 	<flow name="get:/report/mam:api-config">
-        <set-variable variableName="description" value="Get all registered assets for a content provider within a specific period from AMS" doc:name="Set description"/>
+        <set-variable variableName="description" value="Get all archived assets for a content provider within a specific period from MAM" doc:name="Set description"/>
         <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.cp]" doc:name="Set cp_ldap (LDAP ID)"/>
         <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'last-day':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
         <choice doc:name="cp_ldap is empty?">
