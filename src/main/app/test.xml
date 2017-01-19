@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+ 
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:signature="http://www.mulesoft.org/schema/mule/signature" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml" xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:spring="http://www.springframework.org/schema/beans"  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="localhost" port="8081" doc:name="HTTP Listener Configuration"/>
+    <http:request-config name="HTTP_Request_google" protocol="HTTPS" host="www.googleapis.com" port="443" basePath="/" doc:name="HTTP Request Configuration"/>
+    <flow name="google_test_1">
+        <http:listener config-ref="api-httpListenerConfig" path="/sha" allowedMethods="get" doc:name="HTTP"/>
+        <set-variable variableName="privateKey" value="#[&quot;&quot;]" doc:name="var private"/>
+        <set-variable variableName="time" value="#[server.dateTime]" doc:name="var time"/>
+        <dw:transform-message doc:name="var claimSet">
+            <dw:set-variable variableName="claimSet"><![CDATA[%dw 1.0
+%output application/json
+---
+{
+  "iss":"dashboard@viaa-151811.iam.gserviceaccount.com",
+  "scope":"https://www.googleapis.com/auth/analytics.readonly",
+  "aud":"https://www.googleapis.com/oauth2/v4/token",
+  "exp":(flowVars['time']+3600),
+  "iat":flowVars['time']+0
+}]]></dw:set-variable>
+        </dw:transform-message>
+        <set-variable variableName="header" value="#['{&quot;alg&quot;:&quot;RS256&quot;,&quot;typ&quot;:&quot;JWT&quot;}']" doc:name="var header"/>
+        <set-variable variableName="baseHeader" value="#[Base64.getUrlEncoder().encodeToString(flowVars.header.getBytes(&quot;utf-8&quot;))]" doc:name="var baseHeader"/>
+        <set-variable variableName="baseClaimSet" value="#[Base64.getUrlEncoder().encodeToString(flowVars.claimSet.getBytes(&quot;utf-8&quot;))]" doc:name="var baseClaimSet"/>
+        <logger message="#[flowVars.rsa]" level="INFO" doc:name="Logger"/>
+    </flow>
+    <flow name="google_test_2">
+        <http:listener config-ref="api-httpListenerConfig" path="/sha2" allowedMethods="Get" doc:name="HTTP"/>
+        <scripting:component doc:name="Python">
+            <scripting:script engine="jython" file="python/google.py"/>
+        </scripting:component>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+    </flow>
+</mule>

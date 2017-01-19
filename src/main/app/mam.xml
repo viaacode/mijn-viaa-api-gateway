@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:json="http://www.mulesoft.org/schema/mule/json"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+
+<http:request-config name="ldap2mam_http" host="${ldap2mam.host}" port="${ldap2mam.port}" basePath="/" responseTimeout="30000" doc:name="HTTP Request Configuration" protocol="HTTP"/>
+<ee:object-store-caching-strategy name="Caching_MAM" keyGenerationExpression="#[flowVars.cp_ldap+'_mam'+'_'+flowVars.granularity]" doc:name="Caching Strategy">
+	<in-memory-store name="mam" maxEntries="1000" entryTTL="-1" expirationInterval="600000"/>
+</ee:object-store-caching-strategy>
+<db:generic-config name="Mediahaven_monitoring" url="jdbc:postgresql://${mam.db.host}:${mam.db.port}/${mam.db.database}?password=${mam.db.password}&amp;user=${mam.db.username}" driverClassName="org.postgresql.Driver" doc:name="MH monitoring DB"> 
+        <reconnect-forever></reconnect-forever>  
+    </db:generic-config>
+
+<sub-flow name="CalcAndAddMAMTotal">
+    	<set-variable variableName="mamResult" value="#[payload]" doc:name="Set mamResult (without total)"/>
+                <set-variable variableName="total_archived_amount_ok" value="#[0]" doc:name="Init total_archived_amount_ok"/>
+                <set-variable variableName="total_archived_bytes_ok" value="#[0]" doc:name="Init total_archived_bytes_ok"/>
+                <set-variable variableName="total_archived_amount_nok" value="#[0]" doc:name="Init total_archived_amount_nok"/>
+                <set-variable variableName="total_archived_bytes_nok" value="#[0]" doc:name="Init total_archived_bytes_nok (0)"/>
+                <foreach doc:name="For Each to calc totals">
+                    <set-variable variableName="total_archived_amount_ok" value="#[flowVars.total_archived_amount_ok += payload.archived_amount_ok]" doc:name="Add to total_archived_amount_ok"/>
+                    <set-variable variableName="total_archived_bytes_ok" value="#[flowVars.total_archived_bytes_ok += payload.archived_bytes_ok]" doc:name="Add to total_archived_bytes_ok"/>
+                    <set-variable variableName="total_archived_amount_nok" value="#[flowVars.total_archived_amount_nok += payload.archived_amount_nok]" doc:name="Add to total_archived_amount_nok"/>
+                    <set-variable variableName="total_archived_bytes_nok" value="#[flowVars.total_archived_bytes_nok += payload.archived_bytes_nok]" doc:name="Add to total_archived_amount_nok"/>
+                </foreach>
+                <component class="transformers.AddTotal" doc:name="Java"/>
+    </sub-flow>
+    <sub-flow name="ldap2mam">
+        <http:request config-ref="ldap2mam_http" path="/api/org" method="GET" doc:name="Request MAM ID at ldap2mam">
+            <http:request-builder>
+                <http:query-param paramName="ldap_id" value="#[flowVars.cp_ldap]"/>
+            </http:request-builder>
+        </http:request>
+        <json:json-to-object-transformer doc:name="JSON to Object"/>
+        <set-variable variableName="cp_mam" value="#[payload.get('data').get('organization').asText()]" doc:name="Set cp_mam"/>
+        <choice doc:name="Is cp_mam VIAA?">
+            <when expression="#[flowVars.cp_mam != 'VIAA']">
+                <logger level="INFO" doc:name="Change nothing"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="cp_mam" value="#['%']" doc:name="Set cp_mam to % because cp is VIAA"/>
+            </otherwise>
+        </choice>
+    </sub-flow>
+    <flow name="MAM">
+        <http:listener config-ref="api-httpListenerConfig" path="/report/mam" allowedMethods="GET" doc:name="/api/report/mam?cp={c}&amp;gran={g}
+"/>
+        <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.cp]" doc:name="Set cp_ldap (LDAP ID)"/>
+        <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'last-day':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
+        <choice doc:name="cp_ldap is empty?">
+            <when expression="#[flowVars.cp_ldap!=null &amp;&amp; flowVars.cp_ldap!='null']">
+                <flow-ref name="ldap2mam" doc:name="ldap2mam"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="cp_mam" value="#['%']" doc:name="Set cp_mam (default %)"/>
+            </otherwise>
+        </choice>
+        <ee:cache cachingStrategy-ref="Caching_MAM" doc:name="Cache">
+            <choice doc:name="Last-day, last-week, last-month, last-year or all-time?">
+	            <when expression="#[flowVars.granularity.equals('all-time')]">
+	                    <logger message="all-time = no start" level="INFO" doc:name="all-time = no start and end"/>
+	                    <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items and bytes">
+                        <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.month) x, case when (count(1) OVER (PARTITION BY m.month)) = 1 then 0 else count(1) OVER (PARTITION BY m.month) end items,
+	case when (sum(carrier_size) OVER (PARTITION BY m.month)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.month) end bytes
+	FROM  (SELECT generate_series(date_trunc('month', min(date))
+	                            , max(date), '1 month') AS month FROM pids) m
+	LEFT   JOIN (SELECT date_trunc('month', date) AS month, carrier_size FROM pids
+																where content_provider LIKE #[flowVars.cp_mam]
+																AND status = 'OK'
+																AND pid IN (
+																	select pid
+																	from events
+																	where key = 'ARCHIVED_ON_TAPE_VAULT'
+																)) c
+	                                                        USING (month)
+	ORDER  BY 1;]]></db:parameterized-query>
+	                    </db:select>
+	                </when>
+                <when expression="#[flowVars.granularity.equals('last-year')]">
+                    <logger message="1 year" level="INFO" doc:name="1 year = last 12 months"/>
+                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusYears(-1).toString()]" doc:name="Set start (now() - 1 year)"/>
+                    <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusYears(-1)]" doc:name="Set startDateTime"/>
+                    <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items and bytes">
+                        <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.month) x, case when (count(1) OVER (PARTITION BY m.month)) = 1 then 0 else count(1) OVER (PARTITION BY m.month) end items,
+case when (sum(carrier_size) OVER (PARTITION BY m.month)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.month) end bytes
+FROM  (SELECT generate_series(date_trunc('month', min(date))
+                            , max(date), '1 month') AS month FROM pids where date >= #[flowVars.start]) m
+LEFT   JOIN (SELECT date_trunc('month', date) AS month, carrier_size FROM pids
+															where date >= #[flowVars.start]
+															AND content_provider LIKE #[flowVars.cp_mam]
+															AND status = 'OK'
+															AND pid IN (
+																select pid
+																from events
+																where date >= #[flowVars.start]
+																	AND key = 'ARCHIVED_ON_TAPE_VAULT'
+															)) c
+                                                        USING (month)
+ORDER  BY 1;]]></db:parameterized-query>
+                    </db:select>
+                </when>
+                <when expression="#[flowVars.granularity.equals('last-month')]">
+                    <logger message="1 month" level="INFO" doc:name="1 month = last 30 days"/>
+                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusMonths(-1).toString()]" doc:name="Set start (now() - 1 month)"/>
+                    <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusMonths(-1)]" doc:name="Set startDateTime"/>
+                    <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items and bytes">
+                        <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.day) x, case when (count(1) OVER (PARTITION BY m.day)) = 1 then 0 else count(1) OVER (PARTITION BY m.day) end items,
+case when (sum(carrier_size) OVER (PARTITION BY m.day)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.day) end bytes
+FROM  (SELECT generate_series(date_trunc('day', min(date))
+                            , max(date), '1 day') AS day FROM pids where date >= #[flowVars.start]) m
+LEFT   JOIN (SELECT date_trunc('day', date) AS day, carrier_size FROM pids
+															where date >= #[flowVars.start] 
+															AND content_provider LIKE #[flowVars.cp_mam]
+															AND status = 'OK'
+															AND pid IN (
+																select pid
+																from events
+																where date >= #[flowVars.start]
+																	AND key = 'ARCHIVED_ON_TAPE_VAULT'
+															)) c
+                                                        USING (day)
+ORDER  BY 1;]]></db:parameterized-query>
+                    </db:select>
+                </when>
+                <when expression="#[flowVars.granularity.equals('last-week')]">
+                    <logger message="1 week" level="INFO" doc:name="1 week = last 7 days"/>
+                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusWeeks(-1).toString()]" doc:name="Set start (now() - 1 week)"/>
+                    <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusWeeks(-1)]" doc:name="Set startDateTime"/>
+                    <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items and bytes">
+                        <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.day) x, case when (count(1) OVER (PARTITION BY m.day)) = 1 then 0 else count(1) OVER (PARTITION BY m.day) end items,
+case when (sum(carrier_size) OVER (PARTITION BY m.day)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.day) end bytes
+FROM  (SELECT generate_series(date_trunc('day', min(date))
+                            , max(date), '1 day') AS day FROM pids where date >= #[flowVars.start]) m
+LEFT   JOIN (SELECT date_trunc('day', date) AS day, carrier_size FROM pids
+															where date >= #[flowVars.start]
+															AND content_provider LIKE #[flowVars.cp_mam]
+															AND status = 'OK'
+															AND pid IN (
+																select pid
+																from events
+																where date >= #[flowVars.start]
+																	AND key = 'ARCHIVED_ON_TAPE_VAULT'
+															)) c
+                                                        USING (day)
+ORDER  BY 1;]]></db:parameterized-query>
+                    </db:select>
+                </when>
+                <when expression="#[flowVars.granularity.equals('last-day')]">
+                    <logger message="Live data" level="INFO" doc:name="Last day = 24 hours for every 1 hour"/>
+                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusDays(-1).toString()]" doc:name="Set start (now() - 1 day)"/>
+                    <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusDays(-1)]" doc:name="Set startDateTime"/>
+                    <db:select config-ref="Mediahaven_monitoring" doc:name="Fetch items and bytes">
+                        <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.hour) x, case when (count(1) OVER (PARTITION BY m.hour)) = 1 then 0 else count(1) OVER (PARTITION BY m.hour) end items,
+case when (sum(carrier_size) OVER (PARTITION BY m.hour)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.hour) end bytes
+FROM  (SELECT generate_series(date_trunc('hour', min(date))
+                            , max(date), '1 hour') AS hour FROM pids where date >= #[flowVars.start]) m
+LEFT   JOIN (SELECT date_trunc('hour', date) AS hour, carrier_size FROM pids
+															where date >= #[flowVars.start] 
+															AND content_provider LIKE #[flowVars.cp_mam]
+															AND status = 'OK'
+															AND pid IN (
+																select pid
+																from events
+																where date >= #[flowVars.start]
+																	AND key = 'ARCHIVED_ON_TAPE_VAULT'
+															)) c
+                                                        USING (hour)
+ORDER  BY 1;]]></db:parameterized-query>
+                    </db:select>
+                </when>
+                <otherwise>
+                    <logger message="Bad granularity, use live-data, 2-days, 1-month or 1-year" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
+                </otherwise>
+            </choice>
+        </ee:cache>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"items":
+		(payload map (
+				{
+					"x": $.x,
+					"y": $.items
+				}
+		)),
+	"bytes": 
+		(payload map (
+				{
+					"x": $.x,
+					"y": $.bytes
+				}
+		))
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+        <logger message="Done" level="INFO" doc:name="Done"/>
+    </flow>
+    
+
+</mule>
