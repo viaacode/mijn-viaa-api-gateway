@@ -185,12 +185,15 @@ traits:
       queryParameters: 
         format:
           description: "The format of the response"
+          required: true
           enum: [CSV, JSON]
         slack:
           description: "The slack user to send a notification to"
+          required: false
           example: "@johndoe"
         email:
           description: "The email address to send a notification to"
+          required: false
           example: "john.doe@example.com"
       is: [responses-all: {
           example200: '"data":{"outcome":"started","format":"JSON","slack":"@johndoe","email":"john.doe@example.com"}',
