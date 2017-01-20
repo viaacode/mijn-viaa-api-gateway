@@ -322,7 +322,7 @@ payload]]></dw:set-payload>
                     <smtp:outbound-endpoint host="${smtp.host}" port="${smtp.port}" user="${smtp.username}" password="${smtp.password}" connector-ref="gmailconfig" to="#[flowVars.email]" subject="Your users export is ready" responseTimeout="10000" doc:name="SMTP"/>
                 </when>
                 <otherwise>
-                    <logger message="Did not have to send using slack" level="INFO" doc:name="Copy_of_Logger"/>
+                    <logger message="Did not have to send using email" level="INFO" doc:name="Copy_of_Logger"/>
                 </otherwise>
             </choice>
     </sub-flow>
