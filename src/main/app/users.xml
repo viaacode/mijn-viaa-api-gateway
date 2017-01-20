@@ -272,7 +272,7 @@ FROM
         LEFT JOIN
     migrate_map_testbeeld_contentonderwijsinstellingen m ON m.destid1 = n.nid
 WHERE
-    ur.rid = '31' OR ur.rid = '51'
+    (ur.rid = '31' OR ur.rid = '51')
     #[flowVars.'timerange-clausule']
 GROUP BY u.uid
 order by u.created desc" doc:name="Set Payload"/>
