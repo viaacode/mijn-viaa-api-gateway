@@ -174,20 +174,7 @@ lookup("create_response",
             <choice doc:name="Last-day, last-week, last-month, last-year or all-time?">
 	            <when expression="#[flowVars.granularity.equals('all-time')]">
 	                    <logger message="all-time = no start" level="INFO" doc:name="all-time = no start and end"/>
-                    <set-payload value="SELECT distinct extract(epoch from m.month) x, case when (count(1) OVER (PARTITION BY m.month)) = 1 then 0 else count(1) OVER (PARTITION BY m.month) end items,
-	case when (sum(carrier_size) OVER (PARTITION BY m.month)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.month) end bytes
-	FROM  (SELECT generate_series(date_trunc('month', min(date))
-	                            , max(date), '1 month') AS month FROM pids) m
-	LEFT   JOIN (SELECT date_trunc('month', date) AS month, carrier_size FROM pids
-																where content_provider LIKE #[flowVars.cp_mam]
-																AND status = 'OK'
-																AND pid IN (
-																	select pid
-																	from events
-																	where key = 'ARCHIVED_ON_TAPE_VAULT'
-																)) c
-	                                                        USING (month)
-	ORDER  BY 1;" doc:name="Fetch items and bytes"/>
+                    <set-payload value="SELECT distinct extract(epoch from m.month) x, case when (count(1) OVER (PARTITION BY m.month)) = 1 then 0 else count(1) OVER (PARTITION BY m.month) end items,  case when (sum(carrier_size) OVER (PARTITION BY m.month)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.month) end bytes  FROM  (SELECT generate_series(date_trunc('month', min(date))                              , max(date), '1 month') AS month FROM pids) m  LEFT   JOIN (SELECT date_trunc('month', date) AS month, carrier_size FROM pids                 where content_provider LIKE '#[flowVars.cp_mam]'                 AND status = 'OK'                 AND pid IN (                  select pid                  from events                  where key = 'ARCHIVED_ON_TAPE_VAULT'                 )) c                                                          USING (month)  ORDER  BY 1;" doc:name="Fetch items and bytes"/>
                     <flow-ref name="ref:mh-call" doc:name="ref:mh-call"/>
 	                </when>
                 <when expression="#[flowVars.granularity.equals('last-year')]">
