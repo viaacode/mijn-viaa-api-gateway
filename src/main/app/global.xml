@@ -9,9 +9,9 @@
 	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="
-http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smtp/current/mule-smtp.xsd 
-http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smtp/current/mule-smtp.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
 http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
 http://www.mulesoft.org/schema/mule/objectstore http://www.mulesoft.org/schema/mule/objectstore/current/mule-objectstore.xsd
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
@@ -55,6 +55,9 @@ http://www.mulesoft.org/schema/mule/oauth2 http://www.mulesoft.org/schema/mule/o
    	<db:generic-config name="Mediahaven_monitoring" url="jdbc:postgresql://${mam.db.host}:${mam.db.port}/${mam.db.database}?password=${mam.db.password}&amp;user=${mam.db.username}" driverClassName="org.postgresql.Driver" doc:name="MH monitoring DB"> 
         <reconnect-forever></reconnect-forever>  
     </db:generic-config>
+    <db:generic-config name="Exports_database" url="jdbc:postgresql://${export.db.host}:${export.db.port}/${export.db.database}?password=${export.db.password}&amp;user=${export.db.username}" driverClassName="org.postgresql.Driver" doc:name="MH monitoring DB"> 
+        <reconnect-forever></reconnect-forever>  
+    </db:generic-config>
     <db:generic-config name="Borndigital" url="jdbc:postgresql://${borndigital.db.host}:${borndigital.db.port}/${borndigital.db.database}?password=${borndigital.db.password}&amp;user=${borndigital.db.username}" driverClassName="org.postgresql.Driver" doc:name="Borndigital DB"> 
         <reconnect-forever></reconnect-forever>  
     </db:generic-config>
@@ -67,7 +70,7 @@ http://www.mulesoft.org/schema/mule/oauth2 http://www.mulesoft.org/schema/mule/o
     <ee:object-store-caching-strategy name="Caching_AvO_Users_count" keyGenerationExpression="#[flowVars.'timerange-clausule']" doc:name="Caching Strategy">
         <managed-store storeName="avo_users_count" maxEntries="1" entryTTL="-1" expirationInterval="600000"/>
     </ee:object-store-caching-strategy>
-    <http:request-config name="ldap2mam_http" host="${ldap2mam.host}" port="${ldap2mam.port}" basePath="/" responseTimeout="30000" doc:name="HTTP Request Configuration" protocol="HTTP"/>
+    <http:request-config name="ldap2mam_http" host="${ldap2mam.host}" port="${ldap2mam.port}" basePath="/" responseTimeout="30000" doc:name="HTTP Request Configuration" />
 	<ee:object-store-caching-strategy name="Caching_MAM" keyGenerationExpression="#[flowVars.cp_ldap+'_mam'+'_'+flowVars.granularity]" doc:name="Caching Strategy">
 		<in-memory-store name="mam" maxEntries="1000" entryTTL="-1" expirationInterval="600000"/>
 	</ee:object-store-caching-strategy>
@@ -78,6 +81,9 @@ http://www.mulesoft.org/schema/mule/oauth2 http://www.mulesoft.org/schema/mule/o
     <!-- ##### OAUTH ##### -->
     <oauth2:token-manager-config name="Token_Manager_Config"  doc:name="Token Manager Config" />
     <!-- ##### SMTP ##### -->
-    <smtp:gmail-connector name="gmailconfig" doc:name="Gmail"/>
+    <smtp:gmail-connector name="gmailconfig" doc:name="Gmail" validateConnections="true">
+    </smtp:gmail-connector>
+    
+    <smtp:connector name="SMTP" validateConnections="true" doc:name="SMTP"/>
 
 </mule>
