@@ -18,16 +18,8 @@ http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/cor
 http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
 
 	<flow name="get:/users/count:api-config">
-        <set-payload value="SELECT
-				    r.name as name, COUNT(DISTINCT (u.uid)) as count, u.status
-				FROM
-				    users u
-				        LEFT JOIN
-				    users_roles ur ON ur.uid = u.uid
-				        JOIN
-				    role r ON r.rid = ur.rid
-				GROUP BY ur.rid
-				order by ur.rid DESC;" doc:name="Set Payload"/>
+        <flow-ref name="datarange" doc:name="datarange"/>
+        <set-payload value="SELECT         r.name as name, COUNT(DISTINCT (u.uid)) as count, u.status     FROM         users u             LEFT JOIN         users_roles ur ON ur.uid = u.uid             JOIN         role r ON r.rid = ur.rid  WHERE     FROM_UNIXTIME(u.access)&gt;= '#[flowVars.from]'  And   FROM_UNIXTIME(u.access)&lt;= '#[flowVars.until]'    GROUP BY ur.rid     order by ur.rid DESC;" doc:name="Set Payload"/>
         <flow-ref name="ref:avo-collection-call" doc:name="ref:avo-collection-call"/>
         <set-variable variableName="total" value="#[0]" doc:name="var total"/>
         <foreach collection="#[payload]" doc:name="For Each">
@@ -233,50 +225,8 @@ lookup("create_response", {
     </flow>
     
     <sub-flow name="exportUsers">
-    	            <set-payload value="SELECT 
-    u.uid,
-    p.pid,
-    u.name naam,
-    u.mail 'e-mail',
-    u.status active,
-    FROM_UNIXTIME(u.created) created,
-    FROM_UNIXTIME(u.access) access,
-    r.name rol,
-    GROUP_CONCAT(rl.field_registratie_leraarkaart_value) lerarenkaart,
-    GROUP_CONCAT(td.name
-        SEPARATOR ', ') graad,
-    GROUP_CONCAT(DISTINCT n.title
-        SEPARATOR ', ') school,
-    SUBSTRING_INDEX(m.sourceid1, '_', 1) vestigingsnummer
-FROM
-    users u
-        LEFT JOIN
-    users_roles ur ON ur.uid = u.uid
-    AND u.created &gt;= 1473897600
-        LEFT JOIN
-    role r ON r.rid = ur.rid
-        LEFT JOIN
-    profile p ON p.uid = u.uid
-        LEFT JOIN
-    field_data_field_registratie_leraarkaart rl ON rl.entity_id = p.pid
-        LEFT JOIN
-    field_data_field_leerjaar_ref lr ON lr.entity_id = p.pid
-        LEFT JOIN
-    taxonomy_term_data td ON td.tid = lr.field_leerjaar_ref_target_id
-        LEFT JOIN
-    field_data_field_registratie_scholen rs ON rs.entity_id = p.pid
-        LEFT JOIN
-    field_data_field_scholen fs ON fs.entity_id = p.pid
-        LEFT JOIN
-    node n ON n.nid = fs.field_scholen_target_id
-        LEFT JOIN
-    migrate_map_testbeeld_contentonderwijsinstellingen m ON m.destid1 = n.nid
-WHERE
-    (ur.rid = '31' OR ur.rid = '51')
-    #[flowVars.'timerange-clausule']
-GROUP BY u.uid
-order by u.created desc" doc:name="Set Payload"/>
-            <flow-ref name="ref:avo-collection-call-synchronous" doc:name="ref:avo-collection-call-synchronous"/>
+    	            <set-payload value="SELECT      u.uid,     p.pid,     u.name naam,     u.mail 'e-mail',     u.status active,     FROM_UNIXTIME(u.created) created,     FROM_UNIXTIME(u.access) access,     r.name rol,     GROUP_CONCAT(rl.field_registratie_leraarkaart_value) lerarenkaart,     GROUP_CONCAT(td.name         SEPARATOR ', ') graad,     GROUP_CONCAT(DISTINCT n.title         SEPARATOR ', ') school,     SUBSTRING_INDEX(m.sourceid1, '_', 1) vestigingsnummer FROM     users u         LEFT JOIN     users_roles ur ON ur.uid = u.uid           LEFT JOIN     role r ON r.rid = ur.rid         LEFT JOIN     profile p ON p.uid = u.uid         LEFT JOIN     field_data_field_registratie_leraarkaart rl ON rl.entity_id = p.pid         LEFT JOIN     field_data_field_leerjaar_ref lr ON lr.entity_id = p.pid         LEFT JOIN     taxonomy_term_data td ON td.tid = lr.field_leerjaar_ref_target_id         LEFT JOIN     field_data_field_registratie_scholen rs ON rs.entity_id = p.pid         LEFT JOIN     field_data_field_scholen fs ON fs.entity_id = p.pid         LEFT JOIN     node n ON n.nid = fs.field_scholen_target_id         LEFT JOIN     migrate_map_testbeeld_contentonderwijsinstellingen m ON m.destid1 = n.nid WHERE     (ur.rid = '31' OR ur.rid = '51')     #[flowVars.'timerange-clausule'] GROUP BY u.uid order by u.created desc" doc:name="Set Payload"/>
+                        <flow-ref name="ref:avo-collection-call-synchronous" doc:name="ref:avo-collection-call-synchronous"/>
             <choice doc:name="Choice">
                 <when expression="#[flowVars.format == 'CSV']">
                     <dw:transform-message doc:name="To CSV">
@@ -295,19 +245,22 @@ payload]]></dw:set-payload>
                     </dw:transform-message>
                 </otherwise>
             </choice>
+
+            
             <set-variable variableName="filename" value="avo-users-#[server.dateTime.format(&quot;yyyy_MM_dd__HH_mm_ss&quot;)].#[flowVars.format]" doc:name="Set filename"/>
             <byte-array-to-string-transformer doc:name="Byte Array to String"/>
             <ftp:outbound-endpoint host="${avo.export.host}" port="${avo.export.port}" path="${avo.export.basepath}" user="${avo.export.user}" password="${avo.export.password}" outputPattern="#[flowVars.filename]" responseTimeout="10000" doc:name="FTP"/>
+        <set-variable variableName="pathToSend" value="ftp://${avo.export.host}:${avo.export.relativepath}" doc:name="Set pathToSend"/>
             <choice doc:name="Send a slack notification?">
                 <when expression="#[flowVars.slack != null &amp;&amp; !flowVars.slack.equals(&quot;&quot;)]">
                     <http:request config-ref="Slack" path="/chat.postMessage" method="POST" doc:name="Post to slack">
                         <http:request-builder>
-                            <http:query-param paramName="token" value="${slack.token}"/>
-                            <http:query-param paramName="as_user" value="false"/>
-                            <http:query-param paramName="username" value="${slack.username}"/>
-                            <http:query-param paramName="channel" value="#[flowVars.slack]"/>
-                            <http:query-param paramName="text" value="Your user export is ready at #['${avo.export.basepath}']/#[flowVars.filename]"/>
-                            <http:header headerName="Content-Type" value="application/json"/>
+                        <http:query-param paramName="token" value="${slack.token}"/>
+                        <http:query-param paramName="as_user" value="false"/>
+                        <http:query-param paramName="username" value="${slack.username}"/>
+                        <http:query-param paramName="channel" value="#[flowVars.slack]"/>
+                        <http:query-param paramName="text" value="Your user export is ready at #[flowVars.pathToSend] with name: #[flowVars.filename]"/>
+                        <http:header headerName="Content-Type" value="application/json"/>
                         </http:request-builder>
                     </http:request>
                     <byte-array-to-string-transformer doc:name="Byte Array to String"/>
@@ -318,8 +271,8 @@ payload]]></dw:set-payload>
             </choice>
             <choice doc:name="Send an email notification?">
                 <when expression="#[flowVars.email != null &amp;&amp; !flowVars.email.equals(&quot;&quot;)]">
-                    <set-payload value="Your user export is ready at #['${avo.export.basepath}']/#[flowVars.filename]" doc:name="Set Payload"/>
-                    <smtp:outbound-endpoint host="${smtp.host}" port="${smtp.port}" user="${smtp.username}" password="${smtp.password}" connector-ref="gmailconfig" to="#[flowVars.email]" subject="Your users export is ready" responseTimeout="10000" doc:name="SMTP"/>
+                    <set-payload value="Your user export is ready at #[flowVars.pathToSend] with name: #[flowVars.filename]" doc:name="Set Payload"/>
+                    <smtp:outbound-endpoint host="${smtp.host}" port="${smtp.port}"   connector-ref="SMTP" to="#[flowVars.email]" subject="Your users export is ready" responseTimeout="10000" doc:name="SMTP" from="support@viaa.be"/>
                 </when>
                 <otherwise>
                     <logger message="Did not have to send using email" level="INFO" doc:name="Copy_of_Logger"/>

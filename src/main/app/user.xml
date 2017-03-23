@@ -109,13 +109,13 @@ lookup("create_response", payload)]]></dw:set-payload>
     </flow>
     <flow name="get:/user/{uid}/favorites:api-config">
         <set-variable variableName="description" value="Get users favorites based on uid" doc:name="Set description"/>
-        <set-payload doc:name="Set Payload" value="select asset_id collection_id, n.nid , ass.field_assets_asset_reference title, title col_title from node n
+        <set-payload doc:name="Set Payload" value="select asset_id collection_id, n.nid , ass.field_assets_asset_reference title, title col_title
+from node n
 join mediamosa_collection_mapping mc on n.nid = mc.nid
 join field_data_field_assets ass on ass.entity_id = mc.nid
 where n.uid = #[flowVars.uid]
 and n.type = 'collectie'
-and n.title = 'favourite'
-and n.status = 0"/>
+and n.title = 'favourite';"/>
 
         <flow-ref name="ref:avo-collection-call" doc:name="ref:avo-collection-call"/>
         <dw:transform-message doc:name="output">
