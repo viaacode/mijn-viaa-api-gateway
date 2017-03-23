@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:smtp="http://www.mulesoft.org/schema/mule/smtp"
+	xmlns:ftp="http://www.mulesoft.org/schema/mule/ee/ftp"
+	xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smtp/current/mule-smtp.xsd
+http://www.mulesoft.org/schema/mule/ee/ftp http://www.mulesoft.org/schema/mule/ee/ftp/current/mule-ftp-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+
+	<flow name="get:/users/count:api-config">
+        <set-payload value="SELECT
+				    r.name as name, COUNT(DISTINCT (u.uid)) as count, u.status
+				FROM
+				    users u
+				        LEFT JOIN
+				    users_roles ur ON ur.uid = u.uid
+				        JOIN
+				    role r ON r.rid = ur.rid
+				GROUP BY ur.rid
+				order by ur.rid DESC;" doc:name="Set Payload"/>
+        <flow-ref name="ref:avo-collection-call" doc:name="ref:avo-collection-call"/>
+        <set-variable variableName="total" value="#[0]" doc:name="var total"/>
+        <foreach collection="#[payload]" doc:name="For Each">
+            <set-variable variableName="total" value="#[flowVars.total + payload.count]" doc:name="var total"/>
+        </foreach>
+        <dw:transform-message doc:name="output">
+            <dw:input-payload doc:sample="sample_data/list_map.dwl"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", 
+	{(payload map {
+		($.name as :string): $.count
+})}
+)]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="get:/users/count/active:api-config">
+		<flow-ref name="datarange" doc:name="datarange"/>
+        <choice doc:name="Choice_check_date">
+            <when expression="#[flowVars.from &gt; flowVars.until]">
+                <flow-ref name="ref:fail" doc:name="ref:fail"/>
+            </when>
+            <otherwise>
+                <set-payload value="SELECT
+    ur.rid, r.name, COUNT(DISTINCT (u.uid)) as counter
+FROM
+    users u
+        JOIN
+    users_roles ur ON ur.uid = u.uid
+        JOIN
+    role r ON r.rid = ur.rid
+WHERE
+    FROM_UNIXTIME(u.access)&gt;= '#[flowVars.from]'
+	And
+		FROM_UNIXTIME(u.access)&lt;= '#[flowVars.until]'
+GROUP BY ur.rid
+ORDER BY ur.rid;" doc:name="Set Payload"/>
+                <flow-ref name="ref:avo-collection-call" doc:name="ref:avo-collection-call"/>
+                <set-variable variableName="total" value="#[0]" doc:name="var total"/>
+                <foreach doc:name="For Each">
+                    <set-variable variableName="total" value="#[flowVars.total +payload.counter]" doc:name="var total"/>
+                </foreach>
+                <dw:transform-message doc:name="output">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", 
+	{(payload map {
+		($.name as :string) : $.counter
+	})}
+)	]]></dw:set-payload>
+                </dw:transform-message>
+            </otherwise>
+        </choice>    </flow>
+    <flow name="get:/users/count/conversions:api-config">
+        <set-variable variableName="query-from" value="#[(message.inboundProperties.'http.query.params'.from == empty)? '20050102' : message.inboundProperties.'http.query.params'.from]" doc:name="var from"/>
+        <set-variable variableName="today" value="#[server.dateTime]" doc:name="var today"/>
+        <set-variable variableName="query-until" value="#[(message.inboundProperties.'http.query.params'.until == empty) ? flowVars.today : message.inboundProperties.'http.query.params'.until]" doc:name="var until"/>
+        <dw:transform-message doc:name="Time">
+            <dw:input-variable variableName="query-from"/>
+            <dw:set-variable variableName="from"><![CDATA[%dw 1.0
+%output application/java
+---
+(flowVars['query-from'] as :date {format: "yyyyMMdd"}) 
+as :string {format: "yyyy-MM-dd"}]]></dw:set-variable>
+            <dw:set-variable variableName="until"><![CDATA[%dw 1.0
+%output application/java
+---
+(flowVars['query-until'] as :date {format: "yyyyMMdd"}) 
+as :string {format: "yyyy-MM-dd"}]]></dw:set-variable>
+        </dw:transform-message>
+
+        <choice doc:name="Choice_check_date">
+            <when expression="">
+                <flow-ref name="ref:fail" doc:name="ref:fail"/>
+
+            </when>
+
+            <otherwise>
+                <dw:transform-message doc:name="goals">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	"1":"Deelname Poster",
+	"2":"Registratie nieuw gebruiker"
+}]]></dw:set-payload>
+                </dw:transform-message>
+                <dw:transform-message doc:name="prep -google call">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+  "reportRequests":
+  [
+    {
+      "viewId": "ga:128760630",
+      ("dateRanges": [{"startDate": flowVars["from"], "endDate": flowVars["until"]}]) when flowVars["from"]? and flowVars["until"]?,
+      "metrics": [
+      	{"expression": "ga:goal2Completions"},
+      	{"expression": "ga:goal2Starts"},
+      	{"expression": "ga:goal2ConversionRate"}
+      ]
+    }
+  ]
+}]]></dw:set-payload>
+                </dw:transform-message>
+                <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+                <http:request config-ref="HTTP_Request_Configuration" path="/reports:batchGet" method="POST" doc:name="HTTP google call"/>
+                <dw:transform-message doc:name="output">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", 
+	{
+		ratio: payload.reports[0].data.totals[0].values[2],
+		starts: payload.reports[0].data.totals[0].values[1],
+		complete: payload.reports[0].data.totals[0].values[0]
+	}
+)]]></dw:set-payload>
+                </dw:transform-message>
+
+
+            </otherwise>
+        </choice>    </flow>
+    <flow name="get:/users/count/registered:api-config">
+<flow-ref name="datarange" doc:name="datarange"/>
+        <set-payload value="Select r.name, count(u.uid) as count From users u
+JOIN users_roles ur ON u.uid = ur.uid
+JOIN role r ON r.rid = ur.rid
+WHERE
+		FROM_UNIXTIME(u.access)&gt;= '#[flowVars.from]'
+	And
+		FROM_UNIXTIME(u.access)&lt;= '#[flowVars.until]'
+GROUP BY r.name;" doc:name="Set Payload"/>
+        <flow-ref name="ref:avo-collection-call" doc:name="ref:avo-collection-call"/>
+        <set-variable variableName="total" value="#[0]" doc:name="Set total"/>
+        <foreach collection="#[payload]" doc:name="For Each">
+            <set-variable variableName="total" value="#[flowVars.total + payload.count]" doc:name="Add count to total"/>
+        </foreach>
+        <dw:transform-message doc:name="output">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", 
+	{(payload map  {
+				($.name as :string) : $.count
+	})}
+)]]></dw:set-payload>
+        </dw:transform-message>    </flow>
+    <flow name="get:/users/roles:api-config">
+        <set-payload value="SELECT * FROM sb_testbeeldond.role as r order by r.rid;" doc:name="Set Payload"/>
+        <flow-ref name="ref:avo-collection-call" doc:name="ref:avo-collection-call"/>
+
+        <dw:transform-message doc:name="output">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", 
+	{(payload map {
+		($.rid as :string) : $.name
+	})}
+)]]></dw:set-payload>
+        </dw:transform-message>    </flow>
+        
+        <flow name="get:/users/export:api-config">
+        <set-variable variableName="format" value="#[message.inboundProperties.'http.query.params'.format == null ? 'JSON' : message.inboundProperties.'http.query.params'.format.toUpperCase() == 'JSON' ? 'JSON' : 'CSV']" doc:name="Set format to JSON or CSV"/>
+        <set-variable variableName="slack" value="#[message.inboundProperties.'http.query.params'.slack]" doc:name="Set slack"/>
+        <set-variable variableName="email" value="#[message.inboundProperties.'http.query.params'.email]" doc:name="Set email"/>
+        <choice doc:name="Timerange available?">
+            <when expression="#[message.inboundProperties.'http.query.params'.from != null &amp;&amp; message.inboundProperties.'http.query.params'.until != null]">
+                <set-variable variableName="from" value="#[message.inboundProperties.'http.query.params'.from]" doc:name="Set from"/>
+                <set-variable variableName="until" value="#[message.inboundProperties.'http.query.params'.until]" doc:name="until"/>
+                <set-variable variableName="timerange-clausule" value="#[' AND u.created &gt;= ' + &quot;'&quot; + flowVars.from + &quot;'&quot; + ' AND u.created &lt;= ' + &quot;'&quot; + flowVars.until + &quot;'&quot;]" doc:name="Set timerange-clausule"/>
+            </when>
+            <when expression="#[message.inboundProperties.'http.query.params'.from == null &amp;&amp; message.inboundProperties.'http.query.params'.until != null]">
+                <set-variable variableName="until" value="#[message.inboundProperties.'http.query.params'.until]" doc:name="Only until"/>
+                <set-variable variableName="timerange-clausule" value="#[' AND u.created &lt;= ' + &quot;'&quot; + flowVars.until + &quot;'&quot;]" doc:name="Set timerange-clausule"/>
+            </when>
+            <when expression="#[message.inboundProperties.'http.query.params'.from != null &amp;&amp; message.inboundProperties.'http.query.params'.until == null]">
+                <set-variable variableName="from" value="#[message.inboundProperties.'http.query.params'.from]" doc:name="Only from"/>
+                <set-variable variableName="timerange-clausule" value="#[' AND u.created &gt;= ' + &quot;'&quot; + flowVars.from + &quot;'&quot;]" doc:name="Set timerange-clausule"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="timerange-clausule" value="#['']" doc:name="Set timerange-clausule empty"/>
+            </otherwise>
+        </choice>
+        <async doc:name="Async">
+            <flow-ref name="exportUsers" doc:name="exportUsers"/>
+        </async>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+lookup("create_response", {
+	outcome: "started",
+	format: flowVars.format,
+	slack: flowVars.slack,
+	email: flowVars.email
+})]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    
+    <sub-flow name="exportUsers">
+    	            <set-payload value="SELECT 
+    u.uid,
+    p.pid,
+    u.name naam,
+    u.mail 'e-mail',
+    u.status active,
+    FROM_UNIXTIME(u.created) created,
+    FROM_UNIXTIME(u.access) access,
+    r.name rol,
+    GROUP_CONCAT(rl.field_registratie_leraarkaart_value) lerarenkaart,
+    GROUP_CONCAT(td.name
+        SEPARATOR ', ') graad,
+    GROUP_CONCAT(DISTINCT n.title
+        SEPARATOR ', ') school,
+    SUBSTRING_INDEX(m.sourceid1, '_', 1) vestigingsnummer
+FROM
+    users u
+        LEFT JOIN
+    users_roles ur ON ur.uid = u.uid
+    AND u.created &gt;= 1473897600
+        LEFT JOIN
+    role r ON r.rid = ur.rid
+        LEFT JOIN
+    profile p ON p.uid = u.uid
+        LEFT JOIN
+    field_data_field_registratie_leraarkaart rl ON rl.entity_id = p.pid
+        LEFT JOIN
+    field_data_field_leerjaar_ref lr ON lr.entity_id = p.pid
+        LEFT JOIN
+    taxonomy_term_data td ON td.tid = lr.field_leerjaar_ref_target_id
+        LEFT JOIN
+    field_data_field_registratie_scholen rs ON rs.entity_id = p.pid
+        LEFT JOIN
+    field_data_field_scholen fs ON fs.entity_id = p.pid
+        LEFT JOIN
+    node n ON n.nid = fs.field_scholen_target_id
+        LEFT JOIN
+    migrate_map_testbeeld_contentonderwijsinstellingen m ON m.destid1 = n.nid
+WHERE
+    (ur.rid = '31' OR ur.rid = '51')
+    #[flowVars.'timerange-clausule']
+GROUP BY u.uid
+order by u.created desc" doc:name="Set Payload"/>
+            <flow-ref name="ref:avo-collection-call-synchronous" doc:name="ref:avo-collection-call-synchronous"/>
+            <choice doc:name="Choice">
+                <when expression="#[flowVars.format == 'CSV']">
+                    <dw:transform-message doc:name="To CSV">
+                        <dw:set-payload><![CDATA[%dw 1.0
+%output application/csv
+---
+payload]]></dw:set-payload>
+                    </dw:transform-message>
+                </when>
+                <otherwise>
+                    <dw:transform-message doc:name="To JSON">
+                        <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload]]></dw:set-payload>
+                    </dw:transform-message>
+                </otherwise>
+            </choice>
+            <set-variable variableName="filename" value="avo-users-#[server.dateTime.format(&quot;yyyy_MM_dd__HH_mm_ss&quot;)].#[flowVars.format]" doc:name="Set filename"/>
+            <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+            <ftp:outbound-endpoint host="${avo.export.host}" port="${avo.export.port}" path="${avo.export.basepath}" user="${avo.export.user}" password="${avo.export.password}" outputPattern="#[flowVars.filename]" responseTimeout="10000" doc:name="FTP"/>
+            <choice doc:name="Send a slack notification?">
+                <when expression="#[flowVars.slack != null &amp;&amp; !flowVars.slack.equals(&quot;&quot;)]">
+                    <http:request config-ref="Slack" path="/chat.postMessage" method="POST" doc:name="Post to slack">
+                        <http:request-builder>
+                            <http:query-param paramName="token" value="${slack.token}"/>
+                            <http:query-param paramName="as_user" value="false"/>
+                            <http:query-param paramName="username" value="${slack.username}"/>
+                            <http:query-param paramName="channel" value="#[flowVars.slack]"/>
+                            <http:query-param paramName="text" value="Your user export is ready at #['${avo.export.basepath}']/#[flowVars.filename]"/>
+                            <http:header headerName="Content-Type" value="application/json"/>
+                        </http:request-builder>
+                    </http:request>
+                    <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+                </when>
+                <otherwise>
+                    <logger message="Did not have to send using slack" level="INFO" doc:name="Logger"/>
+                </otherwise>
+            </choice>
+            <choice doc:name="Send an email notification?">
+                <when expression="#[flowVars.email != null &amp;&amp; !flowVars.email.equals(&quot;&quot;)]">
+                    <set-payload value="Your user export is ready at #['${avo.export.basepath}']/#[flowVars.filename]" doc:name="Set Payload"/>
+                    <smtp:outbound-endpoint host="${smtp.host}" port="${smtp.port}" user="${smtp.username}" password="${smtp.password}" connector-ref="gmailconfig" to="#[flowVars.email]" subject="Your users export is ready" responseTimeout="10000" doc:name="SMTP"/>
+                </when>
+                <otherwise>
+                    <logger message="Did not have to send using email" level="INFO" doc:name="Copy_of_Logger"/>
+                </otherwise>
+            </choice>
+    </sub-flow>
+    
+        
+        <sub-flow name="ref:fail">
+        <dw:transform-message doc:name="fail message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"header": {
+		"timestamp": flowVars['getMilli'],
+		"path": flowVars['path'] ,
+        "fail": flowVars['fail'],
+        "sources": ["avo"]
+	}
+}]]></dw:set-payload>
+        </dw:transform-message>
+    </sub-flow>
+
+</mule>

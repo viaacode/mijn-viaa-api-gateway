@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd">
+	
+	<flow name="get:/assets/count:api-config">
+		<set-variable doc:name="Set description" value="Get asset's info based on pid" variableName="description"/>
+        <set-payload doc:name="Set Payload to list of types" value="#[[&quot;video&quot;, &quot;audio&quot;, &quot;collectie&quot;, &quot;thema&quot;]]"/>
+        <set-variable variableName="total" value="#[0]" doc:name="Initialize total"/>
+        <set-variable variableName="resultList" value="#[new java.util.HashMap()]" doc:name="Initialize resultList"/>
+        <foreach doc:name="For Each">
+            <set-variable variableName="type" value="#[payload]" doc:name="Set type"/>
+            <set-variable variableName="link" value="/asset?cql=asset.asset_type%3D%22#[flowVars.type]%22" doc:name="var link"/>
+            <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
+            <dw:transform-message doc:name="Update total and Create currentCount">
+                <dw:set-variable variableName="total"><![CDATA[%dw 1.0
+%output application/java
+---
+flowVars.total + payload.response.header.item_count_total]]></dw:set-variable>
+                <dw:set-variable variableName="currentCount"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.response.header.item_count_total]]></dw:set-variable>
+            </dw:transform-message>
+            <expression-component doc:name="Add to resultList"><![CDATA[flowVars.resultList.put(flowVars.type, flowVars.currentCount);]]></expression-component>
+        </foreach>
+        <dw:transform-message doc:name="output">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", flowVars.resultList)]]></dw:set-payload>
+        </dw:transform-message>    </flow>
+   	<flow name="get:/assets/count/{type}:api-config">
+        <set-variable doc:name="Set description" value="Count all assets of type: #[flowVars.type]" variableName="description"/>
+        <set-variable variableName="link" value="/asset?cql=asset.asset_type%3D%22#[flowVars.type]%22" doc:name="var link"/>
+        <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
+        <dw:transform-message doc:name="var count">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+            <dw:set-variable variableName="count"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.response.header.item_count]]></dw:set-variable>
+        </dw:transform-message>
+        <choice doc:name="Choice_assets_found">
+            <when expression="#[flowVars.count &gt; 0]">
+                <dw:transform-message doc:name="output">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", {
+		(flowVars['type'] as :string) : payload.response.header.item_count_total
+	}
+)]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <flow-ref name="throw404" doc:name="throw404"/>
+            </otherwise>
+        </choice>
+    </flow>
+    <flow name="get:/assets/mostrecent:api-config">
+		<set-variable doc:name="Set description" value="Find the most recent asset independent of type" variableName="description"/>
+        <set-variable variableName="link" value="/asset?order_by=videotimestamp&amp;limit=1&amp;order_direction=DESC" doc:name="var link"/>
+        <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
+        <dw:transform-message doc:name="var count">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/xml
+---
+payload]]></dw:set-payload>
+            <dw:set-variable variableName="count"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.response.header.item_count]]></dw:set-variable>
+        </dw:transform-message>
+        <choice doc:name="Choice_assets_found">
+            <when expression="#[flowVars.count &gt; 0]">
+                <dw:transform-message doc:name="output">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", payload.response.items.item
+)]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <flow-ref name="throw404" doc:name="throw404"/>
+            </otherwise>
+        </choice>
+	</flow>
+    <flow name="get:/assets/mostrecent/{type}:api-config">
+        <set-variable doc:name="Set description" value="Find most recent of type: #[flowVars.type]" variableName="description"/>
+        <set-variable variableName="link" value="/asset?order_by=videotimestamp&amp;limit=1&amp;order_direction=DESC&amp;cql=asset.asset_type%3D%22#[flowVars.type]%22" doc:name="var link"/>
+        <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
+        <dw:transform-message doc:name="var count">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+            <dw:set-variable variableName="count"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.response.header.item_count]]></dw:set-variable>
+        </dw:transform-message>
+        <choice doc:name="Choice_assets_found">
+            <when expression="#[flowVars.count &gt; 0]">
+                <dw:transform-message doc:name="output">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", {
+		(flowVars['type'] as :string) : payload.response.items.item
+	}
+)]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <flow-ref name="throw404" doc:name="throw404"/>
+            </otherwise>
+        </choice>    </flow>
+    <flow name="get:/assets/mostviewed:api-config">
+		<set-variable doc:name="Set description" value="Find most viewed asset" variableName="description"/>
+        <set-variable variableName="link" value="/asset?order_by=viewed&amp;limit=1" doc:name="var link"/>
+        <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
+        <dw:transform-message doc:name="var count">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+            <dw:set-variable variableName="count"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.response.header.item_count]]></dw:set-variable>
+        </dw:transform-message>
+        <choice doc:name="Choice">
+            <when expression="#[flowVars.count &gt; 0]">
+                <dw:transform-message doc:name="Transform Message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", {
+		(flowVars['type'] as :string) : payload.response.items.item
+	}
+)]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <flow-ref name="throw404" doc:name="throw404"/>
+            </otherwise>
+        </choice>
+    </flow>
+    <flow name="get:/assets/mostviewed/{type}:api-config">
+		<set-variable doc:name="Set description" value="Find most viewed asset of type: #[flowVars.type]" variableName="description"/>
+        <set-variable variableName="link" value="/asset?order_by=viewed&amp;limit=1&amp;cql=asset.asset_type%3D%22#[flowVars.type]%22" doc:name="var link"/>
+        <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
+        <dw:transform-message doc:name="var count">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+            <dw:set-variable variableName="count"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.response.header.item_count]]></dw:set-variable>
+        </dw:transform-message>
+        <choice doc:name="Choice">
+            <when expression="#[flowVars.count &gt; 0]">
+                <dw:transform-message doc:name="Transform Message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", {
+		(flowVars['type'] as :string) : payload.response.items.item
+	}
+)]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <flow-ref name="throw404" doc:name="throw404"/>
+            </otherwise>
+        </choice>
+    </flow>
+    <flow name="get:/assets/mostfavorites:api-config">
+		<set-variable doc:name="Set description" value="Find most favorited asset" variableName="description"/>
+        <set-variable variableName="link" value="/asset?order_by=videotimestamp&amp;limit=1&amp;order_direction=DESC" doc:name="var link"/>
+        <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
+        <dw:transform-message doc:name="var count">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+            <dw:set-variable variableName="count"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.response.header.item_count]]></dw:set-variable>
+        </dw:transform-message>
+        <choice doc:name="Choice">
+            <when expression="#[flowVars.count &gt; 0]">
+                <dw:transform-message doc:name="Transform Message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", payload.response.items.item)]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <flow-ref name="throw404" doc:name="throw404"/>
+            </otherwise>
+        </choice>
+    </flow>
+    <flow name="get:/assets/mostfavorites/{type}:api-config">
+		<set-variable doc:name="Set description" value="Find most favorited asset of type: #[flowVars.type]" variableName="description"/>
+        <set-variable variableName="link" value="/asset?order_by=videotimestamp&amp;limit=1&amp;order_direction=DESC&amp;cql=asset.asset_type%3D%22#[flowVars.type]%22" doc:name="var link"/>
+        <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
+        <dw:transform-message doc:name="var count">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+            <dw:set-variable variableName="count"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.response.header.item_count]]></dw:set-variable>
+        </dw:transform-message>
+        <choice doc:name="Choice">
+            <when expression="#[flowVars.count &gt; 0]">
+                <dw:transform-message doc:name="Transform Message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", {
+		(flowVars['type'] as :string) : payload.response.items.item
+	}
+)]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <flow-ref name="throw404" doc:name="throw404"/>
+            </otherwise>
+        </choice>
+    </flow>
+    
+
+</mule>

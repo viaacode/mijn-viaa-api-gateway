@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+
+	<flow name="get:/user/{uid}:api-config">
+        <set-variable variableName="description" value="Get user information based on uid" doc:name="Set description"/>
+        <set-payload doc:name="Set Payload" value="SELECT 
+    u.uid,
+    p.pid,
+    u.name naam,
+    u.mail 'e-mail',
+    u.status active,
+    FROM_UNIXTIME(u.created) created,
+    FROM_UNIXTIME(u.access) access,
+    r.name rol,
+    GROUP_CONCAT(rl.field_registratie_leraarkaart_value) lerarenkaart,
+    GROUP_CONCAT(td.name
+        SEPARATOR ', ') graad,
+    GROUP_CONCAT(DISTINCT n.title
+        SEPARATOR ', ') school,
+    SUBSTRING_INDEX(m.sourceid1, '_', 1) vestigingsnummer
+FROM
+    users u
+        LEFT JOIN
+    users_roles ur ON ur.uid = u.uid
+        JOIN
+    role r ON r.rid = ur.rid
+        LEFT JOIN
+    profile p ON p.uid = u.uid
+        LEFT JOIN
+    field_data_field_registratie_leraarkaart rl ON rl.entity_id = p.pid
+        LEFT JOIN
+    field_data_field_leerjaar_ref lr ON lr.entity_id = p.pid
+        LEFT JOIN
+    taxonomy_term_data td ON td.tid = lr.field_leerjaar_ref_target_id
+        LEFT JOIN
+    field_data_field_registratie_scholen rs ON rs.entity_id = p.pid
+        LEFT JOIN
+    field_data_field_scholen fs ON fs.entity_id = p.pid
+        LEFT JOIN
+    node n ON n.nid = fs.field_scholen_target_id
+        LEFT JOIN
+    migrate_map_testbeeld_contentonderwijsinstellingen m ON m.destid1 = n.nid
+WHERE
+    u.uid = #[flowVars.uid]
+GROUP BY u.uid
+order by u.created desc"/>
+
+        <flow-ref name="ref:avo-call" doc:name="ref:avo-call"/>
+        <dw:transform-message doc:name="output">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", payload[0])]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="get:/user/{uid}/active:api-config">
+        <set-variable variableName="description" value="Check if user is active based on uid" doc:name="Set description"/>
+        <set-payload doc:name="Set Payload" value="select status, FROM_UNIXTIME(access) as last from users where uid = #[flowVars.uid]"/>
+        <flow-ref name="ref:avo-call" doc:name="ref:avo-call"/>
+        <dw:transform-message doc:name="output">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", 
+	{
+		"status":"active" when payload[0].status == 1 otherwise "non-active",
+		"last-active": payload[0].last
+	}
+)]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="get:/user/{uid}/collections:api-config">
+        <set-variable variableName="description" value="Get users collections based on uid" doc:name="Set description"/>
+        <set-payload doc:name="Set Payload" value="SELECT asset_id collection_id, n.nid , ass.field_assets_asset_reference title, ass.field_assets_asset_reference_id video_asset,title col_title
+FROM node n
+JOIN mediamosa_collection_mapping mc ON n.nid = mc.nid
+JOIN field_data_field_assets ass ON ass.entity_id = mc.nid
+WHERE n.uid = #[flowVars.uid]
+AND n.type = 'collectie'"/>
+        <flow-ref name="ref:avo-collection-call" doc:name="ref:avo-collection-call"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+            <dw:set-variable variableName="total"><![CDATA[%dw 1.0
+%output application/java
+---
+sizeOf payload]]></dw:set-variable>
+        </dw:transform-message>
+        <dw:transform-message doc:name="output">
+            <dw:input-payload/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", payload)]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="get:/user/{uid}/favorites:api-config">
+        <set-variable variableName="description" value="Get users favorites based on uid" doc:name="Set description"/>
+        <set-payload doc:name="Set Payload" value="select asset_id collection_id, n.nid , ass.field_assets_asset_reference title, title col_title from node n
+join mediamosa_collection_mapping mc on n.nid = mc.nid
+join field_data_field_assets ass on ass.entity_id = mc.nid
+where n.uid = #[flowVars.uid]
+and n.type = 'collectie'
+and n.title = 'favourite'
+and n.status = 0"/>
+
+        <flow-ref name="ref:avo-collection-call" doc:name="ref:avo-collection-call"/>
+        <dw:transform-message doc:name="output">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+%var info = flowVars['info'] splitBy "|"
+---
+lookup("create_response", (payload groupBy $.col_title)
+)]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+
+</mule>
