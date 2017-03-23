@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
+
+    <flow name="get:/export:api-config">
+        <flow-ref name="parseStartIndex" doc:name="parseStartIndex"/>
+        <flow-ref name="parseNrOfResults" doc:name="parseNrOfResults"/>
+        <set-payload value="SELECT ensembles.pid, file_count, COUNT(*), ensembles.tenant, ensembles.metadata, ensembles.export_id, ensembles.type, ensembles.metadata_format, ensembles.id
+FROM
+	export_ensembles ensembles
+LEFT JOIN
+	export export
+ON
+	ensembles.pid = ensemble_pid AND 
+	ensembles.export_id = export.export_id
+WHERE
+	status IN('completed')
+GROUP BY
+	ensembles.pid, file_count, ensembles.tenant, ensembles.metadata, ensembles.export_id, ensembles.type, ensembles.metadata_format, ensembles.id
+ORDER BY
+	ensembles.id DESC
+OFFSET #[flowVars.startIndex] LIMIT #[flowVars.nrOfResults];" doc:name="Set Payload"/>
+        <flow-ref name="ref:export-collection-call" doc:name="ref:export-collection-call"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", payload
+)]]></dw:set-payload>
+        </dw:transform-message>
+        <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+        <logger level="INFO" doc:name="Logger"/>
+    </flow>
+    <flow name="parseStartIndex" processingStrategy="synchronous">
+        <set-variable variableName="startIndex" value="#[java.lang.Integer.parseInt(message.inboundProperties.'http.query.params'.startIndex)]" doc:name="Set startIndex"/>
+        <choice doc:name="Choice">
+            <when expression="#[flowVars.startIndex &lt; 0]">
+            	<set-variable variableName="startIndex" value="#[0]" doc:name="Set startIndex"/>
+            </when>
+            <otherwise>
+                <logger message="startIndex: #[flowVars.startIndex]" level="INFO" doc:name="Logger"/>
+            </otherwise>
+        </choice>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-variable variableName="startIndex" value="#[0]" doc:name="Set startIndex"/>
+        </catch-exception-strategy>
+    </flow>
+    <flow name="parseNrOfResults" processingStrategy="synchronous">
+        <set-variable variableName="nrOfResults" value="#[java.lang.Integer.parseInt(message.inboundProperties.'http.query.params'.nrOfResults)]" doc:name="Set nrOfResults"/>
+        <choice doc:name="Choice">
+            <when expression="#[flowVars.nrOfResults &lt;= 0]">
+                <set-variable variableName="nrOfResults" value="#[25]" doc:name="Set nrOfResults"/>
+            </when>
+            <otherwise>
+                <logger message="nrOfResults: #[flowVars.nrOfResults]" level="INFO" doc:name="Logger"/>
+            </otherwise>
+        </choice>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-variable variableName="nrOfResults" value="#[25]" doc:name="Set nrOfResults"/>
+        </catch-exception-strategy>
+    </flow>
+    <flow name="get:/export/{id}:api-config">
+        <set-payload value="#[NullPayload.getInstance()]" doc:name="Set Payload"/>
+    </flow>
+
+
+</mule>

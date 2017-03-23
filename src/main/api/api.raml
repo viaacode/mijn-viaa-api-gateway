@@ -59,7 +59,7 @@ traits:
       description: "Count all assets grouped by type"
       is: [responses-all: {
         example200: '"data":{"collectie":"845","thema":"181","video":"8556","audio":"719"}',
-        description: "Count all assets grouped by type"}]
+        description: "Count all assets grouped by type"}, dates]
     /{type}:
       uriParameters: 
           type: 
@@ -69,7 +69,7 @@ traits:
         description: "Count all assets of type: video/adio/collectie/thema"
         is: [responses-all: {
           example200: '"data":{"video":"8556"}',
-          description: "Count all assets of type: video/adio/collectie/thema"}]
+          description: "Count all assets of type: video/adio/collectie/thema"}, dates]
   /mostrecent:
     get:
       description: "Gets the most recent asset independent of type"
@@ -129,25 +129,25 @@ traits:
         description: "Get user information based on uid"
         is: [responses-all: {
           example200: '"data":{"active":1,"created":"2000-01-01T00:00:00","access":"2000-01-01T00:00:00","uid":123456789,"naam":"John Doe","rol":"god","vestigingsnummer":"0123456789","pid":123456789,"e-mail":"john.doe@example.com","lerarenkaart":null,"graad":"Hoogste","school":"Harvard"}',
-          description: "Get user information based on uid"},dates]
+          description: "Get user information based on uid"}]
     /collections:
       get:
         description: "users collection numbers"
         is: [responses-all: {
           example200: '"data":[{"video_asset":"e1NCVSPPlZ6X9b5ocK5U9b7G","nid":53741,"title":"Soldatenhuwelijk in de loopgraven","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"I2MSaSijUgIjFXIThZ8gB1xU","nid":53741,"title":"Dodengang","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"p1JrMHdoSSZbERcGZiKkkftZ","nid":53741,"title":"DOVO ontmijnt","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"p2Bsc9dlBSPLbaZ9YIiiR7lN","nid":53741,"title":"Wapenstilstand","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"e1ZUFfemPXwfkZhsL3cPWxuU","nid":53741,"title":"11 november","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"O2fOlHTJZTNTeTYj2Z0P61oc","nid":116301,"title":"1. Marc De Bel drinkt biomelk","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"x1ZIMMNO5JZUXLKFWhorWWV6","nid":116301,"title":"2. De Miss Griezelverkiezing'' van Marc De Bel","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"vyeR8faUqJMbRYfQDpCT25cE","nid":116301,"title":"3. Marc De Bel stelt nieuw boek voor ''Kapitein Cacao''","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"mKSOcnmbjxNcOWXVRJsIO0GZ","nid":116301,"title":"4. Opname van jeugdfilm ''Blinker en de bakfietsbioscoop''","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"c1ASsMRNQbKmWQQNXl9E2J1R","nid":116301,"title":"5. Boeboeks","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"V1INNUlfpVgunOfOnSZh1qx1","nid":532741,"title":"Onze ruimte: planeten om de zon","collection_id":"iXJHIaKVMXZWGKhdmiaFZVJO","col_title":"zon"}]',
-          description: "users collection numbers"},dates]
+          description: "users collection numbers"}]
     /favorites:
       get:
         description: "users favourite assets"
         is: [responses-all: {
           example200: '"data":[{"video_asset":"e1NCVSPPlZ6X9b5ocK5U9b7G","nid":53741,"title":"Soldatenhuwelijk in de loopgraven","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"I2MSaSijUgIjFXIThZ8gB1xU","nid":53741,"title":"Dodengang","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"p1JrMHdoSSZbERcGZiKkkftZ","nid":53741,"title":"DOVO ontmijnt","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"p2Bsc9dlBSPLbaZ9YIiiR7lN","nid":53741,"title":"Wapenstilstand","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"e1ZUFfemPXwfkZhsL3cPWxuU","nid":53741,"title":"11 november","collection_id":"C2YJVZHOPE8iYDWUbdcsAU3w","col_title":"WOI (4de lj)"},{"video_asset":"O2fOlHTJZTNTeTYj2Z0P61oc","nid":116301,"title":"1. Marc De Bel drinkt biomelk","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"x1ZIMMNO5JZUXLKFWhorWWV6","nid":116301,"title":"2. De Miss Griezelverkiezing'' van Marc De Bel","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"vyeR8faUqJMbRYfQDpCT25cE","nid":116301,"title":"3. Marc De Bel stelt nieuw boek voor ''Kapitein Cacao''","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"mKSOcnmbjxNcOWXVRJsIO0GZ","nid":116301,"title":"4. Opname van jeugdfilm ''Blinker en de bakfietsbioscoop''","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"c1ASsMRNQbKmWQQNXl9E2J1R","nid":116301,"title":"5. Boeboeks","collection_id":"Z1RcNFjgMsmWZVWVmF0hzYmr","col_title":"Het werk van auteur Marc De Bel"},{"video_asset":"V1INNUlfpVgunOfOnSZh1qx1","nid":532741,"title":"Onze ruimte: planeten om de zon","collection_id":"iXJHIaKVMXZWGKhdmiaFZVJO","col_title":"zon"}]',
-          description: "users favourite assets"},dates]
+          description: "users favourite assets"}]
     /active:
       get:
         description: "check if user is active"
         is: [responses-all: {
           example200: '"data":{"status":"active","last-active":"2000-01-01T00:00:00"}',
-          description: "check if user is active"},dates]
+          description: "check if user is active"}]
 /users:
   /roles:
     get:
@@ -160,19 +160,19 @@ traits:
       description: "count users/role"
       is: [responses-all: {
         example200: '"data":{"administrator":25,"Testgebruiker viaa":57,"Testgebruiker onderwijs":78,"Student":15178,"Platform beheerder":1,"Docent":17008,"Content beheerder":1}',
-        description: "count users/role"},dates]
+        description: "count users/role"}, dates]
     /active:
       get:
         description: "count how many users were active in daterange"
         is: [responses-all: {
           example200: '"data":{"Docent":16787,"Student":8123,"Testgebruiker onderwijs":78,"Testgebruiker viaa":57,"administrator":25}',
-          description: "count how many users were active in daterange"},dates]
+          description: "count how many users were active in daterange"}, dates]
     /registered:
       get:
         description: "count how many users registered in daterange"
         is: [responses-all: {
           example200: '"data":{"administrator":25,"Docent":16787,"Student":8123,"Testgebruiker onderwijs":78,"Testgebruiker viaa":57}',
-          description: "count how many users registered in daterange"},dates]
+          description: "count how many users registered in daterange"}, dates]
     /conversions:
       get:
         description: "get google analyitcs info of user conversions - TODO"
@@ -206,6 +206,7 @@ traits:
         cp:
           description: "The content provider"
           pattern: "OR-[A-Za-z0-9]{7}"
+          required: false
         gran:
           description: "The granularity"
           enum: [all-time, last-year, last-month, last-week, last-day]
@@ -219,6 +220,7 @@ traits:
         cp:
           description: "The content provider"
           pattern: "OR-[A-Za-z0-9]{7}"
+          required: false
         gran:
           description: "The granularity"
           enum: [all-time, last-year, last-month, last-week, last-day]
@@ -232,6 +234,7 @@ traits:
         cp:
           description: "The content provider"
           pattern: "OR-[A-Za-z0-9]{7}"
+          required: false
       is: [responses-all: {
         example200: '"data":
           {
@@ -355,3 +358,55 @@ traits:
           "status": "awaitingMetadataUpdate7d"
         }',
         description: "Get the ingest status based on the pid or media id"}]
+
+/export:
+  displayName: All things export jobs
+  description: Everything that has to do with exports
+  get:
+    queryParameters:
+      nrOfResults:
+        example: 25
+        default: 25
+      startIndex:
+        example: 0
+        default: 0
+    description: Gets all export jobs
+    is: [responses-all: {
+        example200: '"data": [
+          {
+              "type": "AV",
+              "notification_sent": true,
+              "job_completed_date": "2017-03-02T14:51:45",
+              "file_count": 2,
+              "metadata": "",
+              "tenant": "pz51g0km6m_2017321488462567398",
+              "metadata_format": "MEM",
+              "complete": true,
+              "export_id": "pz51g0km6m_2017321488462567398",
+              "pid": "pz51g0km6m",
+              "id": 170970
+          },
+          {
+              "type": "AV",
+              "notification_sent": true,
+              "job_completed_date": "2017-03-02T13:57:44",
+              "file_count": 2,
+              "metadata": "",
+              "tenant": "pz51g0km6m_2017321488457134555",
+              "metadata_format": "MEM",
+              "complete": true,
+              "export_id": "pz51g0km6m_2017321488457134555",
+              "pid": "pz51g0km6m",
+              "id": 170963
+          }
+          ]',
+        description: "Get all export jobs"}]
+  /{id}:
+    uriParameters: 
+      id: 
+        displayName: ID
+        description: The ID of the export job
+        example: 'pz51g0km6m_2017321488462567398'
+    displayName: Job
+    get:
+      description: Gets information on a specific export job
