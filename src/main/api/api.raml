@@ -358,19 +358,30 @@ traits:
           "status": "awaitingMetadataUpdate7d"
         }',
         description: "Get the ingest status based on the pid or media id"}]
-
-/export:
-  displayName: All things export jobs
-  description: Everything that has to do with exports
+/ingest:
+  displayName: Ingest reporting
+  description: Retrieve information about ingest
   get:
-    queryParameters:
-      nrOfResults:
-        example: 25
-        default: 25
+    queryParameters: 
+      cp_id:
+        type: string
+        minLength: 4
+        pattern: OR-.*
+        required: true
       startIndex:
-        example: 0
+        type: integer
+        required: false
+        minimum: 0
         default: 0
-    description: Gets all export jobs
+        displayName: Start Index
+        description: Index to start at
+      nrOfResults:
+        type: integer
+        required: false
+        default: 25
+        minimum: 0
+        displayName: Number of results
+        description: Number of results to return
     is: [responses-all: {
         example200: '"data": [
           {
@@ -398,6 +409,102 @@ traits:
               "export_id": "pz51g0km6m_2017321488457134555",
               "pid": "pz51g0km6m",
               "id": 170963
+          }
+          ]',
+        description: "Get all export jobs"}]
+  /{id}:
+    displayName: Single SIP
+    description: Get events from one sip
+    uriParameters: 
+      id: 
+        required: true
+        type: string
+        example: "002cfcb6-3ca5-4093-bde4-179da239d8c5"
+        displayName: ID
+        description: The ID of the record to get
+    get:
+      is: [responses-all: {
+        example200: '"data": [
+          {
+              "type": "AV",
+              "notification_sent": true,
+              "job_completed_date": "2017-03-02T14:51:45",
+              "file_count": 2,
+              "metadata": "",
+              "tenant": "pz51g0km6m_2017321488462567398",
+              "metadata_format": "MEM",
+              "complete": true,
+              "export_id": "pz51g0km6m_2017321488462567398",
+              "pid": "pz51g0km6m",
+              "id": 170970
+          },
+          {
+              "type": "AV",
+              "notification_sent": true,
+              "job_completed_date": "2017-03-02T13:57:44",
+              "file_count": 2,
+              "metadata": "",
+              "tenant": "pz51g0km6m_2017321488457134555",
+              "metadata_format": "MEM",
+              "complete": true,
+              "export_id": "pz51g0km6m_2017321488457134555",
+              "pid": "pz51g0km6m",
+              "id": 170963
+          }
+          ]',
+        description: "Get all export jobs"}]
+    
+/export:
+  displayName: All things export jobs
+  description: Everything that has to do with exports
+  get:
+    queryParameters:
+      nrOfResults:
+        example: 25
+        default: 25
+      startIndex:
+        example: 0
+        default: 0
+    description: Gets all export jobs
+    is: [responses-all: {
+        example200: '"data": [
+          {
+            "local_id": "002cfcb6-3ca5-4093-bde4-179da239d8c5",
+            "retry_count": 0,
+            "message": null,
+            "filename": "original",
+            "comment": null,
+            "md5": "39f0f02fc506d6ef470547b512099934",
+            "filepath": "/export/home/provant/incoming/Processing/002cfcb6-3ca5-4093-bde4-179da239d8c5/002cfcb6-3ca5-4093-bde4-179da239d8c5/data",
+            "fragment_id": null,
+            "pid": "qs02w37kx3g",
+            "id": 25,
+            "archive_status": null,
+            "last_event_date": "2017-03-24T13:50:20",
+            "is_deleted": false,
+            "host": "dg-qas-ftp-01.dg.viaa.be",
+            "reported": false,
+            "organisation": "provant",
+            "preingest_status": null
+          },
+          {
+            "local_id": "19fd3a67-c8e6-492c-aacd-53b546e1988e",
+            "retry_count": 0,
+            "message": null,
+            "filename": "original",
+            "comment": null,
+            "md5": "68980fe753232673181a20b4fedc790d",
+            "filepath": "/export/home/provant/incoming/Processing/19fd3a67-c8e6-492c-aacd-53b546e1988e/19fd3a67-c8e6-492c-aacd-53b546e1988e/data",
+            "fragment_id": null,
+            "pid": "qs01kh0f02r",
+            "id": 27,
+            "archive_status": null,
+            "last_event_date": "2017-03-24T13:53:38",
+            "is_deleted": false,
+            "host": "dg-qas-ftp-01.dg.viaa.be",
+            "reported": false,
+            "organisation": "provant",
+            "preingest_status": null
           }
           ]',
         description: "Get all export jobs"}]

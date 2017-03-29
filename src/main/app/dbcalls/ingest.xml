@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    <flow name="db:/ingest">
+        <expression-component doc:name="Add sips as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("sips")) {
+	flowVars.sources.add("sips");
+}]]></expression-component>
+        <db:select config-ref="Sips" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT * FROM sips
+OFFSET #[flowVars.startIndex]
+LIMIT #[flowVars.nrOfResults];]]></db:parameterized-query>
+        </db:select>
+        <flow-ref name="checkResults" doc:name="checkResults"/>
+    </flow>
+    
+        <flow name="db:/ingest/{id}">
+        <expression-component doc:name="Add sips as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("sips")) {
+	flowVars.sources.add("sips");
+}]]></expression-component>
+        <db:select config-ref="Sips" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT *
+FROM events
+WHERE local_id = #[flowVars.id]
+AND local_id = 'blabla';]]></db:parameterized-query>
+        </db:select>
+        <flow-ref name="checkResults" doc:name="checkResults"/>
+    </flow>
+</mule>

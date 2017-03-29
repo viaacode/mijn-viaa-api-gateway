@@ -19,8 +19,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 
 	<flow name="get:/users/count:api-config">
         <flow-ref name="datarange" doc:name="datarange"/>
-        <set-payload value="SELECT         r.name as name, COUNT(DISTINCT (u.uid)) as count, u.status     FROM         users u             LEFT JOIN         users_roles ur ON ur.uid = u.uid             JOIN         role r ON r.rid = ur.rid  WHERE     FROM_UNIXTIME(u.access)&gt;= '#[flowVars.from]'  And   FROM_UNIXTIME(u.access)&lt;= '#[flowVars.until]'    GROUP BY ur.rid     order by ur.rid DESC;" doc:name="Set Payload"/>
-        <flow-ref name="ref:avo-collection-call" doc:name="ref:avo-collection-call"/>
+        <flow-ref name="db:/users/count" doc:name="db:/users/count"/>
         <set-variable variableName="total" value="#[0]" doc:name="var total"/>
         <foreach collection="#[payload]" doc:name="For Each">
             <set-variable variableName="total" value="#[flowVars.total + payload.count]" doc:name="var total"/>
@@ -44,21 +43,7 @@ lookup("create_response",
                 <flow-ref name="ref:fail" doc:name="ref:fail"/>
             </when>
             <otherwise>
-                <set-payload value="SELECT
-    ur.rid, r.name, COUNT(DISTINCT (u.uid)) as counter
-FROM
-    users u
-        JOIN
-    users_roles ur ON ur.uid = u.uid
-        JOIN
-    role r ON r.rid = ur.rid
-WHERE
-    FROM_UNIXTIME(u.access)&gt;= '#[flowVars.from]'
-	And
-		FROM_UNIXTIME(u.access)&lt;= '#[flowVars.until]'
-GROUP BY ur.rid
-ORDER BY ur.rid;" doc:name="Set Payload"/>
-                <flow-ref name="ref:avo-collection-call" doc:name="ref:avo-collection-call"/>
+                <flow-ref name="db:/users/count/active" doc:name="db:/users/count/active"/>
                 <set-variable variableName="total" value="#[0]" doc:name="var total"/>
                 <foreach doc:name="For Each">
                     <set-variable variableName="total" value="#[flowVars.total +payload.counter]" doc:name="var total"/>
@@ -148,15 +133,7 @@ lookup("create_response",
         </choice>    </flow>
     <flow name="get:/users/count/registered:api-config">
 <flow-ref name="datarange" doc:name="datarange"/>
-        <set-payload value="Select r.name, count(u.uid) as count From users u
-JOIN users_roles ur ON u.uid = ur.uid
-JOIN role r ON r.rid = ur.rid
-WHERE
-		FROM_UNIXTIME(u.access)&gt;= '#[flowVars.from]'
-	And
-		FROM_UNIXTIME(u.access)&lt;= '#[flowVars.until]'
-GROUP BY r.name;" doc:name="Set Payload"/>
-        <flow-ref name="ref:avo-collection-call" doc:name="ref:avo-collection-call"/>
+        <flow-ref name="db:/users/count/registered" doc:name="db:/users/count/registered"/>
         <set-variable variableName="total" value="#[0]" doc:name="Set total"/>
         <foreach collection="#[payload]" doc:name="For Each">
             <set-variable variableName="total" value="#[flowVars.total + payload.count]" doc:name="Add count to total"/>
@@ -172,8 +149,7 @@ lookup("create_response",
 )]]></dw:set-payload>
         </dw:transform-message>    </flow>
     <flow name="get:/users/roles:api-config">
-        <set-payload value="SELECT * FROM sb_testbeeldond.role as r order by r.rid;" doc:name="Set Payload"/>
-        <flow-ref name="ref:avo-collection-call" doc:name="ref:avo-collection-call"/>
+        <flow-ref name="db:/users/roles" doc:name="db:/users/roles"/>
 
         <dw:transform-message doc:name="output">
             <dw:set-payload><![CDATA[%dw 1.0

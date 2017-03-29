@@ -22,7 +22,7 @@ http://www.mulesoft.org/schema/mule/oauth2 http://www.mulesoft.org/schema/mule/o
     
     
     <!-- ##### PROPERTY PLACEHOLDER ##### -->
-   	<context:property-placeholder location="${mule.env}.properties"/>
+   	<context:property-placeholder location="production.properties"/>
     
     <!-- ##### HTTP Connectors ##### -->
     <http:request-config name="HTTP_MM_Request" protocol="HTTPS" host="${mm.link}" port="443" basePath="/" doc:name="HTTP Request Configuration"/>
@@ -46,7 +46,10 @@ http://www.mulesoft.org/schema/mule/oauth2 http://www.mulesoft.org/schema/mule/o
    </http:request-config>
    
 	<!-- ##### DB Connectors ##### -->
-    <db:mysql-config name="MySQL_Configuration" host="${avo.host}" port="3306" user="${avo.user}" password="${avo.password}" database="${avo.database}" doc:name="MySQL Configuration">
+    <db:mysql-config name="AvO" host="${avo.host}" port="3306" user="${avo.user}" password="${avo.password}" database="${avo.database}" doc:name="MySQL Configuration">
+        <db:connection-properties>
+            <db:property key="serverTimezone" value="Europe/Brussels"/>
+        </db:connection-properties>
     	<reconnect-forever/>
     </db:mysql-config>
     <db:mysql-config name="AMS_MySQL" host="${ams.db.host}" port="${ams.db.port}" user="${ams.db.username}" password="${ams.db.password}" database="${ams.db.database}" doc:name="MySQL Configuration">
@@ -59,6 +62,9 @@ http://www.mulesoft.org/schema/mule/oauth2 http://www.mulesoft.org/schema/mule/o
         <reconnect-forever></reconnect-forever>  
     </db:generic-config>
     <db:generic-config name="Borndigital" url="jdbc:postgresql://${borndigital.db.host}:${borndigital.db.port}/${borndigital.db.database}?password=${borndigital.db.password}&amp;user=${borndigital.db.username}" driverClassName="org.postgresql.Driver" doc:name="Borndigital DB"> 
+        <reconnect-forever></reconnect-forever>  
+    </db:generic-config>
+    <db:generic-config name="Sips" url="jdbc:postgresql://${sips.db.host}:${sips.db.port}/${sips.db.database}?password=${sips.db.password}&amp;user=${sips.db.username}" driverClassName="org.postgresql.Driver" doc:name="sips DB"> 
         <reconnect-forever></reconnect-forever>  
     </db:generic-config>
     

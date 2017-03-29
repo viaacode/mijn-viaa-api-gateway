@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+
+	<flow name="get:/user/{uid}:api-config">
+        <set-variable variableName="description" value="Get user information based on uid" doc:name="Set description"/>
+        <flow-ref name="db:/user/{uid}" doc:name="db:/user/{uid}"/>
+        <dw:transform-message doc:name="output">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", payload[0])]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="get:/user/{uid}/active:api-config">
+        <set-variable variableName="description" value="Check if user is active based on uid" doc:name="Set description"/>
+        <flow-ref name="db:/user/{uid}/active" doc:name="db:/user/{uid}/active"/>
+        <dw:transform-message doc:name="output">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", 
+	{
+		"status":"active" when payload[0].status == 1 otherwise "non-active",
+		"last-active": payload[0].last
+	}
+)]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="get:/user/{uid}/collections:api-config">
+        <set-variable variableName="description" value="Get users collections based on uid" doc:name="Set description"/>
+        <flow-ref name="db:/user/{uid}/collections" doc:name="db:/user/{uid}/collections"/>
+        <dw:transform-message doc:name="output">
+            <dw:input-payload/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+lookup("create_response", payload)]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="get:/user/{uid}/favorites:api-config">
+        <set-variable variableName="description" value="Get users favorites based on uid" doc:name="Set description"/>
+        <flow-ref name="db:/user/{uid}/favorites" doc:name="db:/user/{uid}/favorites"/>
+        <dw:transform-message doc:name="output">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+%var info = flowVars['info'] splitBy "|"
+---
+lookup("create_response", (payload groupBy $.col_title)
+)]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+
+</mule>

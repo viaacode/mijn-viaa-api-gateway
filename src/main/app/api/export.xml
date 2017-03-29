@@ -13,22 +13,7 @@ http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee
     <flow name="get:/export:api-config">
         <flow-ref name="parseStartIndex" doc:name="parseStartIndex"/>
         <flow-ref name="parseNrOfResults" doc:name="parseNrOfResults"/>
-        <set-payload value="SELECT ensembles.pid, file_count, COUNT(*), ensembles.tenant, ensembles.metadata, ensembles.export_id, ensembles.type, ensembles.metadata_format, ensembles.id
-FROM
-	export_ensembles ensembles
-LEFT JOIN
-	export export
-ON
-	ensembles.pid = ensemble_pid AND 
-	ensembles.export_id = export.export_id
-WHERE
-	status IN('completed')
-GROUP BY
-	ensembles.pid, file_count, ensembles.tenant, ensembles.metadata, ensembles.export_id, ensembles.type, ensembles.metadata_format, ensembles.id
-ORDER BY
-	ensembles.id DESC
-OFFSET #[flowVars.startIndex] LIMIT #[flowVars.nrOfResults];" doc:name="Set Payload"/>
-        <flow-ref name="ref:export-collection-call" doc:name="ref:export-collection-call"/>
+        <flow-ref name="db:/export" doc:name="db:/export"/>
         <dw:transform-message doc:name="Transform Message">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
@@ -36,8 +21,6 @@ OFFSET #[flowVars.startIndex] LIMIT #[flowVars.nrOfResults];" doc:name="Set Payl
 lookup("create_response", payload
 )]]></dw:set-payload>
         </dw:transform-message>
-        <byte-array-to-string-transformer doc:name="Byte Array to String"/>
-        <logger level="INFO" doc:name="Logger"/>
     </flow>
     <flow name="parseStartIndex" processingStrategy="synchronous">
         <set-variable variableName="startIndex" value="#[java.lang.Integer.parseInt(message.inboundProperties.'http.query.params'.startIndex)]" doc:name="Set startIndex"/>

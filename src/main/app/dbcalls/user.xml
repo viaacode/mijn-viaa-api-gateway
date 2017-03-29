@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+
+<flow name="db:/user/{uid}">
+        <expression-component doc:name="Add export as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("AvO")) {
+	flowVars.sources.add("AvO");
+}]]></expression-component>
+        <db:select config-ref="AvO" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT u.uid, p.pid, u.name naam, u.mail 'e-mail', u.status active, FROM_UNIXTIME(u.created) created, FROM_UNIXTIME(u.access) access, r.name rol, GROUP_CONCAT(rl.field_registratie_leraarkaart_value) lerarenkaart, GROUP_CONCAT(td.name SEPARATOR ', ') graad, GROUP_CONCAT(DISTINCT n.title SEPARATOR ', ') school, SUBSTRING_INDEX(m.sourceid1, '_', 1) vestigingsnummer
+FROM users u
+LEFT JOIN users_roles ur ON ur.uid = u.uid
+JOIN role r ON r.rid = ur.rid
+LEFT JOIN profile p ON p.uid = u.uid
+LEFT JOIN field_data_field_registratie_leraarkaart rl ON rl.entity_id = p.pid
+LEFT JOIN field_data_field_leerjaar_ref lr ON lr.entity_id = p.pid
+LEFT JOIN taxonomy_term_data td ON td.tid = lr.field_leerjaar_ref_target_id
+LEFT JOIN field_data_field_registratie_scholen rs ON rs.entity_id = p.pid
+LEFT JOIN field_data_field_scholen fs ON fs.entity_id = p.pid
+LEFT JOIN node n ON n.nid = fs.field_scholen_target_id
+LEFT JOIN migrate_map_testbeeld_contentonderwijsinstellingen m ON m.destid1 = n.nid
+WHERE u.uid = #[flowVars.uid]
+GROUP BY u.uid order by u.created desc]]></db:parameterized-query>
+        </db:select>
+        <flow-ref name="checkResults" doc:name="checkResults"/>
+    </flow>
+    
+    <flow name="db:/user/{uid}/active">
+        <expression-component doc:name="Add export as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("AvO")) {
+	flowVars.sources.add("AvO");
+}]]></expression-component>
+        <db:select config-ref="AvO" doc:name="Database">
+            <db:parameterized-query><![CDATA[select status, FROM_UNIXTIME(access) as last
+FROM users
+WHERE uid = #[flowVars.uid]]]></db:parameterized-query>
+        </db:select>
+        <flow-ref name="checkResults" doc:name="checkResults"/>
+    </flow>
+    
+    <flow name="db:/user/{uid}/collections">
+        <expression-component doc:name="Add export as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("AvO")) {
+	flowVars.sources.add("AvO");
+}]]></expression-component>
+        <db:select config-ref="AvO" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT asset_id collection_id, n.nid , ass.field_assets_asset_reference title, ass.field_assets_asset_reference_id video_asset,title col_title
+FROM node n
+JOIN mediamosa_collection_mapping mc ON n.nid = mc.nid
+JOIN field_data_field_assets ass ON ass.entity_id = mc.nid
+WHERE n.uid = #[flowVars.uid]
+AND n.type = 'collectie']]></db:parameterized-query>
+        </db:select>
+    </flow>
+
+    <flow name="db:/user/{uid}/favorites">
+        <expression-component doc:name="Add export as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("AvO")) {
+	flowVars.sources.add("AvO");
+}]]></expression-component>
+        <db:select config-ref="AvO" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT asset_id collection_id, n.nid , ass.field_assets_asset_reference title, title col_title
+FROM node n
+JOIN mediamosa_collection_mapping mc ON n.nid = mc.nid
+JOIN field_data_field_assets ass ON ass.entity_id = mc.nid
+WHERE n.uid = #[flowVars.uid]
+AND n.type = 'collectie'
+AND n.title = 'favourite';]]></db:parameterized-query>
+        </db:select>
+    </flow>
+</mule>
