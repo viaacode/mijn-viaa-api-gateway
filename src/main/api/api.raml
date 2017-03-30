@@ -423,6 +423,12 @@ traits:
         displayName: ID
         description: The ID of the record to get
     get:
+      queryParameters:
+        cp_id:
+          type: string
+          minLength: 4
+          pattern: OR-.*
+          required: true
       is: [responses-all: {
         example200: '"data": [
           {

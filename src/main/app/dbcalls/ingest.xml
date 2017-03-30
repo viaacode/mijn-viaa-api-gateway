@@ -17,10 +17,20 @@ if (!flowVars.sources.contains("sips")) {
 	flowVars.sources.add("sips");
 }]]></expression-component>
         <db:select config-ref="Sips" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT * FROM sips
+            <db:parameterized-query><![CDATA[SELECT sips.*, count(*) OVER() AS full_count FROM sips sips
+WHERE sips.organisation_id = #[flowVars.organisation_id]
+ORDER BY sips.last_event_date DESC
 OFFSET #[flowVars.startIndex]
 LIMIT #[flowVars.nrOfResults];]]></db:parameterized-query>
         </db:select>
+        <choice doc:name="Returned any results?">
+            <when expression="#[payload.size() &gt; 0]">
+                <set-variable variableName="total" value="#[payload[0].full_count]" doc:name="Set total"/>
+            </when>
+            <otherwise>
+                <expression-component doc:name="Do nothing"><![CDATA[// Do nothing]]></expression-component>
+            </otherwise>
+        </choice>
         <flow-ref name="checkResults" doc:name="checkResults"/>
     </flow>
     
@@ -35,8 +45,9 @@ if (!flowVars.sources.contains("sips")) {
         <db:select config-ref="Sips" doc:name="Database">
             <db:parameterized-query><![CDATA[SELECT *
 FROM events
-WHERE local_id = #[flowVars.id]
-AND local_id = 'blabla';]]></db:parameterized-query>
+WHERE (local_id = #[flowVars.id] OR local_id IN(SELECT local_id FROM events WHERE pid = #[flowVars.id]))
+AND organisation_id = #[flowVars.organisation_id]
+ORDER BY date DESC;]]></db:parameterized-query>
         </db:select>
         <flow-ref name="checkResults" doc:name="checkResults"/>
     </flow>
