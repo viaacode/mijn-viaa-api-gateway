@@ -20,7 +20,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
         <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.cp]" doc:name="Set cp_ldap (LDAP ID)"/>
         <choice doc:name="cp_ldap is empty?">
             <when expression="#[flowVars.cp_ldap!=null &amp;&amp; flowVars.cp_ldap!='null' &amp;&amp; flowVars.cp_ldap != 'OR-w66976m']">
-                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}#[' WHERE noid_id LIKE \'' + flowVars.cp_ldap + '\'']" doc:name="Set query_ams_organization_ids"/>
+                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}#[' WHERE noid_id = \'' + flowVars.cp_ldap + '\'']" doc:name="Set query_ams_organization_ids"/>
                 <logger message="Retrieving global stats: #[flowVars.cp_ldap]" level="INFO" doc:name="Retrieving global stats for an cp"/>
             </when>
             <otherwise>
@@ -32,73 +32,27 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
             <choice doc:name="Last-day, last-week, last-month, last-year or all-time?">
             	<when expression="#[flowVars.granularity.equals('all-time')]">
                     <logger message="all-time = no start and end" level="INFO" doc:name="all-time = no start and end"/>
-                    <set-payload value="SELECT EXTRACT(year_month from created_on), UNIX_TIMESTAMP(MIN(created_on)) x, COUNT(1) total_registered, SUM(CASE WHEN carrier_type_id = 1 THEN 1 ELSE 0 END) audio_registered, SUM(CASE WHEN carrier_type_id = 2 THEN 1 ELSE 0 END) video_registered, SUM(CASE WHEN carrier_type_id = 3 THEN 1 ELSE 0 END) paper_registered, SUM(CASE WHEN carrier_type_id = 4 THEN 1 ELSE 0 END) film_registered
-FROM ${ams.db.carrier}
-WHERE organization_id IN (#[flowVars.query_ams_organization_ids])
-GROUP BY EXTRACT(year_month from created_on)
-ORDER BY MIN(created_on) ASC;" doc:name="Set Payload to query"/>
-                    <flow-ref name="ref:ams-call" doc:name="ref:ams-call"/>
+                    <flow-ref name="db:/report/ams" doc:name="db:/report/ams"/>
                 </when>
                 <when expression="#[flowVars.granularity.equals('last-year')]">
                     <logger message="1 year" level="INFO" doc:name="1 year = last 12 months"/>
                     <set-variable variableName="start" value="#[server.dateTime.getDate().plusYears(-1).toString()]" doc:name="Set start (now() - 1 year)"/>
-                    <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
-                    <set-payload value="select extract(year_month from created_on), unix_timestamp(min(created_on)) x, count(1) total_registered,
-sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
-sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
-sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
-sum(case when carrier_type_id = 4 then 1 else 0 end) film_registered
-FROM ${ams.db.carrier}
-WHERE organization_id IN (
-	#[flowVars.query_ams_organization_ids]
-)
-AND #[flowVars.timeRange]
-group by extract(year_month from created_on)
-order by min(created_on) asc;" doc:name="Set Payload to query"/>
-                    <flow-ref name="ref:ams-call" doc:name="ref:ams-call"/>
+                    <flow-ref name="db:/report/ams-created" doc:name="db:/report/ams-created"/>
                 </when>
                 <when expression="#[flowVars.granularity.equals('last-month')]">
                     <logger message="1 month" level="INFO" doc:name="1 month = last 30 days"/>
                     <set-variable variableName="start" value="#[server.dateTime.getDate().plusMonths(-1).toString()]" doc:name="Set start (now() - 1 month)"/>
-                    <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
-                    <set-payload value="select concat(extract(year_month from created_on), extract(day from created_on)), unix_timestamp(min(created_on)) x, count(1) total_registered, sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered, sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered, sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered, sum(case when carrier_type_id = 4 then 1 else 0 end) film_registered FROM ${ams.db.carrier} WHERE organization_id IN (  #[flowVars.query_ams_organization_ids] ) AND #[flowVars.timeRange] group by concat(extract(year_month from created_on), extract(day from created_on)) order by min(created_on) asc;" doc:name="Set Payload to query"/>
-                    <flow-ref name="ref:ams-call" doc:name="ref:ams-call"/>
+                    <flow-ref name="db:/report/ams-created" doc:name="db:/report/ams-created"/>
                 </when>
                 <when expression="#[flowVars.granularity.equals('last-week')]">
                     <logger message="1 week" level="INFO" doc:name="1 week = last 7 days"/>
                     <set-variable variableName="start" value="#[server.dateTime.getDate().plusWeeks(-1).toString()]" doc:name="Set start (now() - 1 week)"/>
-                    <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
-                    <set-payload value="select concat(extract(year_month from created_on), extract(day from created_on)), unix_timestamp(min(created_on)) x, count(1) total_registered,
-sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
-sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
-sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
-sum(case when carrier_type_id = 4 then 1 else 0 end) film_registered
-FROM ${ams.db.carrier}
-WHERE organization_id IN (
-	#[flowVars.query_ams_organization_ids]
-)
-AND #[flowVars.timeRange]
-group by concat(extract(year_month from created_on), extract(day from created_on))
-order by min(created_on) asc;" doc:name="Set Payload to query"/>
-                    <flow-ref name="ref:ams-call" doc:name="ref:ams-call"/>
+                    <flow-ref name="db:/report/ams-created" doc:name="db:/report/ams-created"/>
                 </when>
                 <when expression="#[flowVars.granularity.equals('last-day')]">
                     <logger message="Live data" level="INFO" doc:name="Last day = 24 hours for every 1 hour"/>
                     <set-variable variableName="start" value="#[server.dateTime.getDate().plusDays(-1).toString()]" doc:name="Set start (now() - 1 day)"/>
-                    <set-variable variableName="timeRange" value="#['created_on &gt;= ' + &quot;'&quot; + flowVars.start + &quot;'&quot;]" doc:name="Set timeRange of where-clausule"/>
-                    <set-payload value="select concat(extract(year_month from created_on), extract(day from created_on), extract(hour from created_on)), unix_timestamp(min(created_on)) x, count(1) total_registered,
-sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
-sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
-sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
-sum(case when carrier_type_id = 4 then 1 else 0 end) film_registered
-FROM ${ams.db.carrier}
-WHERE organization_id IN (
-	#[flowVars.query_ams_organization_ids]
-)
-AND #[flowVars.timeRange]
-group by concat(extract(year_month from created_on), extract(day from created_on), extract(hour from created_on))
-order by min(created_on) asc;" doc:name="Set Payload to query"/>
-                    <flow-ref name="ref:ams-call" doc:name="ref:ams-call"/>
+                    <flow-ref name="db:/report/ams-created" doc:name="db:/report/ams-created"/>
                 </when>
                 <otherwise>
                     <logger message="Bad granularity, use last-year, last-month, last-week or last-day" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
