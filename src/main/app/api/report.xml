@@ -121,110 +121,28 @@ lookup("create_response",
         <ee:cache cachingStrategy-ref="Caching_MAM" doc:name="Cache">
             <choice doc:name="Last-day, last-week, last-month, last-year or all-time?">
 	            <when expression="#[flowVars.granularity.equals('all-time')]">
-	                    <logger message="all-time = no start" level="INFO" doc:name="all-time = no start and end"/>
-                    <set-payload value="SELECT distinct extract(epoch from m.month) x, case when (count(1) OVER (PARTITION BY m.month)) = 1 then 0 else count(1) OVER (PARTITION BY m.month) end items,
-	case when (sum(carrier_size) OVER (PARTITION BY m.month)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.month) end bytes
-	FROM  (SELECT generate_series(date_trunc('month', min(date))
-	                            , max(date), '1 month') AS month FROM pids) m
-	LEFT   JOIN (SELECT date_trunc('month', date) AS month, carrier_size FROM pids
-																where content_provider LIKE #[flowVars.cp_mam]
-																AND status = 'OK'
-																AND pid IN (
-																	select pid
-																	from events
-																	where key = 'ARCHIVED_ON_TAPE_VAULT'
-																)) c
-	                                                        USING (month)
-	ORDER  BY 1;" doc:name="Fetch items and bytes"/>
-                    <flow-ref name="ref:mh-call" doc:name="ref:mh-call"/>
+	                <logger message="all-time = no start" level="INFO" doc:name="all-time = no start and end"/>
+                    <flow-ref name="db:/report/mam" doc:name="db:/report/mam"/>
 	                </when>
                 <when expression="#[flowVars.granularity.equals('last-year')]">
                     <logger message="1 year" level="INFO" doc:name="1 year = last 12 months"/>
-                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusYears(-1).toString()]" doc:name="Set start (now() - 1 year)"/>
-                    <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusYears(-1)]" doc:name="Set startDateTime"/>
-                    <set-payload value="SELECT distinct extract(epoch from m.month) x, case when (count(1) OVER (PARTITION BY m.month)) = 1 then 0 else count(1) OVER (PARTITION BY m.month) end items,
-case when (sum(carrier_size) OVER (PARTITION BY m.month)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.month) end bytes
-FROM  (SELECT generate_series(date_trunc('month', min(date))
-                            , max(date), '1 month') AS month FROM pids where date &gt;= '#[flowVars.start]') m
-LEFT   JOIN (SELECT date_trunc('month', date) AS month, carrier_size FROM pids
-															where date &gt;= '#[flowVars.start]'
-															AND content_provider LIKE '#[flowVars.cp_mam]'
-															AND status = 'OK'
-															AND pid IN (
-																select pid
-																from events
-																where date &gt;= '#[flowVars.start]'
-																	AND key = 'ARCHIVED_ON_TAPE_VAULT'
-															)) c
-                                                        USING (month)
-ORDER  BY 1;" doc:name="Set Payload"/>
-                    <flow-ref name="ref:mh-call" doc:name="ref:mh-call"/>
+                    <set-variable variableName="start" value="#[dw('(now - |P1Y|) as :date {format: &quot;yyyy-MM-dd&quot;}')]" doc:name="Set start (now() - 1 year)"/>
+                    <flow-ref name="db:/report/mam-created" doc:name="db:/report/mam-created"/>
                 </when>
                 <when expression="#[flowVars.granularity.equals('last-month')]">
                     <logger message="1 month" level="INFO" doc:name="1 month = last 30 days"/>
-                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusMonths(-1).toString()]" doc:name="Set start (now() - 1 month)"/>
-                    <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusMonths(-1)]" doc:name="Set startDateTime"/>
-                    <set-payload value="SELECT distinct extract(epoch from m.day) x, case when (count(1) OVER (PARTITION BY m.day)) = 1 then 0 else count(1) OVER (PARTITION BY m.day) end items,
-case when (sum(carrier_size) OVER (PARTITION BY m.day)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.day) end bytes
-FROM  (SELECT generate_series(date_trunc('day', min(date))
-                            , max(date), '1 day') AS day FROM pids where date &gt;= '#[flowVars.start]') m
-LEFT   JOIN (SELECT date_trunc('day', date) AS day, carrier_size FROM pids
-															where date &gt;= '#[flowVars.start]'
-															AND content_provider LIKE '#[flowVars.cp_mam]'
-															AND status = 'OK'
-															AND pid IN (
-																select pid
-																from events
-																where date &gt;= '#[flowVars.start]'
-																	AND key = 'ARCHIVED_ON_TAPE_VAULT'
-															)) c
-                                                        USING (day)
-ORDER  BY 1;" doc:name="Set Payload"/>
-                    <flow-ref name="ref:mh-call" doc:name="ref:mh-call"/>
+                    <set-variable variableName="start" value="#[dw('(now - |P30D|) as :date {format: &quot;yyyy-MM-dd&quot;}')]" doc:name="Set start (now() - 1 month)"/>
+                    <flow-ref name="db:/report/mam-created" doc:name="db:/report/mam-created"/>
                 </when>
                 <when expression="#[flowVars.granularity.equals('last-week')]">
                     <logger message="1 week" level="INFO" doc:name="1 week = last 7 days"/>
-                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusWeeks(-1).toString()]" doc:name="Set start (now() - 1 week)"/>
-                    <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusWeeks(-1)]" doc:name="Set startDateTime"/>
-                    <set-payload value="SELECT distinct extract(epoch from m.day) x, case when (count(1) OVER (PARTITION BY m.day)) = 1 then 0 else count(1) OVER (PARTITION BY m.day) end items,
-case when (sum(carrier_size) OVER (PARTITION BY m.day)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.day) end bytes
-FROM  (SELECT generate_series(date_trunc('day', min(date))
-                            , max(date), '1 day') AS day FROM pids where date &gt;= '#[flowVars.start]') m
-LEFT   JOIN (SELECT date_trunc('day', date) AS day, carrier_size FROM pids
-															where date &gt;= '#[flowVars.start]'
-															AND content_provider LIKE '#[flowVars.cp_mam]'
-															AND status = 'OK'
-															AND pid IN (
-																select pid
-																from events
-																where date &gt;= '#[flowVars.start]'
-																	AND key = 'ARCHIVED_ON_TAPE_VAULT'
-															)) c
-                                                        USING (day)
-ORDER  BY 1;" doc:name="Set Payload"/>
-                    <flow-ref name="ref:mh-call" doc:name="ref:mh-call"/>
+                    <set-variable variableName="start" value="#[dw('(now - |P7D|) as :date {format: &quot;yyyy-MM-dd&quot;}')]" doc:name="Set start (now() - 1 week)"/>
+                    <flow-ref name="db:/report/mam-created" doc:name="db:/report/mam-created"/>
                 </when>
                 <when expression="#[flowVars.granularity.equals('last-day')]">
                     <logger message="Live data" level="INFO" doc:name="Last day = 24 hours for every 1 hour"/>
-                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusDays(-1).toString()]" doc:name="Set start (now() - 1 day)"/>
-                    <set-variable variableName="startDateTime" value="#[server.dateTime.getDate().plusDays(-1)]" doc:name="Set startDateTime"/>
-                    <set-payload value="SELECT distinct extract(epoch from m.hour) x, case when (count(1) OVER (PARTITION BY m.hour)) = 1 then 0 else count(1) OVER (PARTITION BY m.hour) end items,
-case when (sum(carrier_size) OVER (PARTITION BY m.hour)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.hour) end bytes
-FROM  (SELECT generate_series(date_trunc('hour', min(date))
-                            , max(date), '1 hour') AS hour FROM pids where date &gt;= '#[flowVars.start]') m
-LEFT   JOIN (SELECT date_trunc('hour', date) AS hour, carrier_size FROM pids
-															where date &gt;= '#[flowVars.start]'
-															AND content_provider LIKE '#[flowVars.cp_mam]'
-															AND status = 'OK'
-															AND pid IN (
-																select pid
-																from events
-																where date &gt;= '#[flowVars.start]'
-																	AND key = 'ARCHIVED_ON_TAPE_VAULT'
-															)) c
-                                                        USING (hour)
-ORDER  BY 1;" doc:name="Set Payload"/>
-                    <flow-ref name="ref:mh-call" doc:name="ref:mh-call"/>
+                    <set-variable variableName="start" value="#[dw('(now - |P1D|) as :date {format: &quot;yyyy-MM-dd&quot;}')]" doc:name="Set start (now() - 1 day)"/>
+                    <flow-ref name="db:/report/mam-created" doc:name="db:/report/mam-created"/>
                 </when>
                 <otherwise>
                     <logger message="Bad granularity, use live-data, 2-days, 1-month or 1-year" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
