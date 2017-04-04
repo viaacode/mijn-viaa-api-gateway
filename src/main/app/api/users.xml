@@ -201,15 +201,20 @@ lookup("create_response", {
     </flow>
     
     <sub-flow name="exportUsers">
-    	            <set-payload value="SELECT      u.uid,     p.pid,     u.name naam,     u.mail 'e-mail',     u.status active,     FROM_UNIXTIME(u.created) created,     FROM_UNIXTIME(u.access) access,     r.name rol,     GROUP_CONCAT(rl.field_registratie_leraarkaart_value) lerarenkaart,     GROUP_CONCAT(td.name         SEPARATOR ', ') graad,     GROUP_CONCAT(DISTINCT n.title         SEPARATOR ', ') school,     SUBSTRING_INDEX(m.sourceid1, '_', 1) vestigingsnummer FROM     users u         LEFT JOIN     users_roles ur ON ur.uid = u.uid           LEFT JOIN     role r ON r.rid = ur.rid         LEFT JOIN     profile p ON p.uid = u.uid         LEFT JOIN     field_data_field_registratie_leraarkaart rl ON rl.entity_id = p.pid         LEFT JOIN     field_data_field_leerjaar_ref lr ON lr.entity_id = p.pid         LEFT JOIN     taxonomy_term_data td ON td.tid = lr.field_leerjaar_ref_target_id         LEFT JOIN     field_data_field_registratie_scholen rs ON rs.entity_id = p.pid         LEFT JOIN     field_data_field_scholen fs ON fs.entity_id = p.pid         LEFT JOIN     node n ON n.nid = fs.field_scholen_target_id         LEFT JOIN     migrate_map_testbeeld_contentonderwijsinstellingen m ON m.destid1 = n.nid WHERE     (ur.rid = '31' OR ur.rid = '51')     #[flowVars.'timerange-clausule'] GROUP BY u.uid order by u.created desc" doc:name="Set Payload"/>
+    	            <set-payload value="SELECT      u.uid,     p.pid,     u.name naam,     u.mail 'e-mail',     u.status active,     DATE_FORMAT(FROM_UNIXTIME(u.created), '%Y-%m-%d %T') created,     DATE_FORMAT(FROM_UNIXTIME(u.access), '%Y-%m-%d %T') access,     r.name rol,     GROUP_CONCAT(rl.field_registratie_leraarkaart_value) lerarenkaart,     GROUP_CONCAT(td.name         SEPARATOR ', ') graad,     GROUP_CONCAT(DISTINCT n.title         SEPARATOR ', ') school,     SUBSTRING_INDEX(m.sourceid1, '_', 1) vestigingsnummer FROM     users u         LEFT JOIN     users_roles ur ON ur.uid = u.uid           LEFT JOIN     role r ON r.rid = ur.rid         LEFT JOIN     profile p ON p.uid = u.uid         LEFT JOIN     field_data_field_registratie_leraarkaart rl ON rl.entity_id = p.pid         LEFT JOIN     field_data_field_leerjaar_ref lr ON lr.entity_id = p.pid         LEFT JOIN     taxonomy_term_data td ON td.tid = lr.field_leerjaar_ref_target_id         LEFT JOIN     field_data_field_registratie_scholen rs ON rs.entity_id = p.pid         LEFT JOIN     field_data_field_scholen fs ON fs.entity_id = p.pid         LEFT JOIN     node n ON n.nid = fs.field_scholen_target_id         LEFT JOIN     migrate_map_testbeeld_contentonderwijsinstellingen m ON m.destid1 = n.nid WHERE     (ur.rid = '31' OR ur.rid = '51')     #[flowVars.'timerange-clausule'] GROUP BY u.uid order by u.created desc;" doc:name="Set Payload"/>
                         <flow-ref name="ref:avo-collection-call-synchronous" doc:name="ref:avo-collection-call-synchronous"/>
             <choice doc:name="Choice">
                 <when expression="#[flowVars.format == 'CSV']">
+                <expression-component doc:name="Expression"><![CDATA[flowVars.columns = {"uid", "pid", "naam", "e-mail", "active", "created", "access", "rol", "lerarenkaart", "graad", "school", "vestigingsnummer"};]]></expression-component>
                     <dw:transform-message doc:name="To CSV">
                         <dw:set-payload><![CDATA[%dw 1.0
-%output application/csv
+%output application/csv quoteValues=true
 ---
-payload]]></dw:set-payload>
+payload map using (row = $) {
+	(flowVars.columns map using (key = $) {
+		'$key': row[key]
+	})
+}]]></dw:set-payload>
                     </dw:transform-message>
                 </when>
                 <otherwise>
