@@ -184,13 +184,11 @@ lookup("create_response",
                 <enricher  target="#[flowVars.cp_mam]" doc:name="Message Enricher">
                     <flow-ref name="ldap2mam" doc:name="ldap2mam"/>
                 </enricher>
-                <set-variable variableName="where_clausule_mam_content_provider" value="#['AND content_provider LIKE \'' + flowVars.cp_mam + '\'']" doc:name="Set where_clausule_mam_content_provider"/>
-                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}#[' WHERE noid_id LIKE \'' + flowVars.cp_ldap + '\'']" doc:name="Set query_ams_organization_ids"/>
                 <logger message="Retrieving global stats: #[flowVars.cp_ldap]" level="INFO" doc:name="Retrieving global stats for an cp"/>
             </when>
             <otherwise>
-                <set-variable variableName="where_clausule_mam_content_provider" value="#['']" doc:name="Set where_clausule_mam_content_provider as empty"/>
-                <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}" doc:name="Set query_ams_organization_ids to every organization"/>
+                <set-variable variableName="cp_mam" value="#[&quot;%&quot;]" doc:name="Set cp_mam as %"/>
+                <set-variable variableName="cp_ldap" value="#[&quot;%&quot;]" doc:name="Set cp_ldap to %"/>
             </otherwise>
         </choice>
         <enricher doc:name="Message Enricher" target="#[payload]">
@@ -200,103 +198,44 @@ lookup("create_response",
                 <processor-chain>
                     <expression-component doc:name="Sleep 20"><![CDATA[Thread.sleep(20);]]></expression-component>
                     <logger message="Start AMS registered" level="INFO" doc:name="Logger"/>
-                    <set-payload value="SELECT count(1) total_registered,
-sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered,
-sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered,
-sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered,
-sum(case when carrier_type_id = 4 then 1 else 0 end) film_registered
-FROM ${ams.db.carrier}
-WHERE organization_id IN (
-	#[flowVars.query_ams_organization_ids]
-);" doc:name="Set Payload"/>
-                    <flow-ref name="ref:ams-call" doc:name="ref:ams-call"/>
+                    <flow-ref name="db:/report/global/ams/registered" doc:name="db:/report/global/ams/registered"/>
                     <logger message="AMS registered done" level="INFO" doc:name="Logger"/>
                 </processor-chain>
                 <processor-chain>
                     <logger message="start MAM" level="INFO" doc:name="Logger"/>
-                    <set-payload value="SELECT case when mime_type LIKE '%video%' then 'video' else mime_type end mime_type, 
-count(case when status = 'OK' then 1 end) archived_amount_ok, 
-sum(case when status = 'OK' and carrier_size is not null then carrier_size else 0 end) archived_bytes_ok,
-count(case when status = 'NOK' then 1 end) archived_amount_nok, 
-sum(case when status = 'NOK' and carrier_size is not null then carrier_size else 0 end) archived_bytes_nok
-FROM ${mam.db.datatable.pids}
-WHERE status IN ('OK', 'NOK') #[flowVars.where_clausule_mam_content_provider]
-GROUP BY case when mime_type LIKE '%video%' then 'video' else mime_type end
-ORDER BY archived_amount_ok desc;" doc:name="Set Payload"/>
-                    <flow-ref name="ref:mh-call" doc:name="ref:mh-call"/>
+                    <flow-ref name="db:/report/global/mam" doc:name="db:/report/global/mam"/>
                     <flow-ref name="CalcAndAddMAMTotal" doc:name="CalcAndAddMAMTotal"/>
                     <logger message="MAM done" level="INFO" doc:name="Logger"/>
                 </processor-chain>
                 <processor-chain>
                     <expression-component doc:name="Sleep 40"><![CDATA[Thread.sleep(40);]]></expression-component>
                     <logger message="Start AMS digitised" level="INFO" doc:name="Logger"/>
-                    <set-payload value="select sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 1 then 1 else 0 end) audio_registered_and_not_digitised,
-sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 2 then 1 else 0 end) video_registered_and_not_digitised,
-sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 4 then 1 else 0 end) film_registered_and_not_digitised,
-sum(case when e.event_outcome = 1 and c.carrier_type_id = 1 then 1 else 0 end) audio_digitised_ok,
-sum(case when e.event_outcome = 0 and c.carrier_type_id = 1 then 1 else 0 end) audio_digitised_nok,
-sum(case when e.event_outcome = 1 and c.carrier_type_id = 2 then 1 else 0 end) video_digitised_ok,
-sum(case when e.event_outcome = 0 and c.carrier_type_id = 2 then 1 else 0 end) video_digitised_nok,
-sum(case when e.event_outcome = 1 and c.carrier_type_id = 4 then 1 else 0 end) film_digitised_ok,
-sum(case when e.event_outcome = 0 and c.carrier_type_id = 4 then 1 else 0 end) film_digitised_nok
-from ams.carrier c
-	LEFT JOIN ams.events e ON c.id = e.carrier_id
-		and e.id = 
-			(select max(id) from ams.events x where x.carrier_id = c.id and event_lookup_id = 5)
-WHERE carrier_id IN (
-											select id
-											from ${ams.db.carrier}
-											where organization_id IN (
-												#[flowVars.query_ams_organization_ids]
-											)
-										);" doc:name="Set Payload"/>
-                    <flow-ref name="ref:ams-call" doc:name="ref:ams-call"/>
+                    <flow-ref name="db:/report/global/ams/digitized" doc:name="db:/report/global/ams/digitized"/>
                     <logger message="AMS digitised av done" level="INFO" doc:name="Logger"/>
                 </processor-chain>
                 <processor-chain>
                     <expression-component doc:name="Sleep 60"><![CDATA[Thread.sleep(60);]]></expression-component>
                     <logger message="Start AMS digitised paper" level="INFO" doc:name="Logger"/>
-                    <set-payload value="select sum(case when e.event_outcome = 1 then 1 else 0 end) paper_digitised_ok,
-sum(case when e.event_outcome = 0 then 1 else 0 end) paper_digitised_nok
-from ${ams.db.paper_event} e
-where event_lookup_id = 5 and carrier_id IN (
-											select id
-											from ${ams.db.carrier}
-											where organization_id IN (
-												#[flowVars.query_ams_organization_ids]
-											)
-										)" doc:name="Set Payload"/>
-                    <flow-ref name="ref:ams-call" doc:name="ref:ams-call"/>
+                    <flow-ref name="db:/report/global/ams/digitized_paper" doc:name="db:/report/global/ams/digitized_paper"/>
                     <logger message="AMS digitised paper done" level="INFO" doc:name="Logger"/>
                 </processor-chain>
                 <processor-chain>
                     <expression-component doc:name="Sleep 80"><![CDATA[Thread.sleep(80);]]></expression-component>
                     <logger message="Start AMS status" level="INFO" doc:name="Logger"/>
-                    <set-payload value="select sum(case when e.event_outcome = 1 then 1 else 0 end) paper_digitised_ok,
-sum(case when e.event_outcome = 0 then 1 else 0 end) paper_digitised_nok
-from ${ams.db.paper_event} e
-where event_lookup_id = 5 and carrier_id IN (
-											select id
-											from ${ams.db.carrier}
-											where organization_id IN (
-												#[flowVars.query_ams_organization_ids]
-											)
-										)" doc:name="Set Payload"/>
-                    <flow-ref name="ref:ams-call" doc:name="ref:ams-call"/>
+                    <flow-ref name="db:/report/global/ams/status" doc:name="db:/report/global/ams/status"/>
                     <logger message="AMS digitised paper done" level="INFO" doc:name="Logger"/>
                 </processor-chain>
             </scatter-gather>
         </ee:cache>
         </enricher>
-        
-        <expression-component doc:name="Add AMS and MAM as sources"><![CDATA[// Scatter Gather does not keep variables made in a referenced flow. Add the sources here manually
-if (flowVars.sources == null) {
+                <expression-component doc:name="Add AMS and MAM as source"><![CDATA[if (flowVars.sources == null) {
 	flowVars.sources = new java.util.ArrayList();
 }
 
 if (!flowVars.sources.contains("AMS")) {
 	flowVars.sources.add("AMS");
 }
+
 if (!flowVars.sources.contains("MAM")) {
 	flowVars.sources.add("MAM");
 }]]></expression-component>
