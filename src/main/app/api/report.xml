@@ -17,7 +17,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 
 	<flow name="get:/report/ams:api-config">
         <set-variable variableName="description" value="Get all registered assets for a content provider within a specific period from AMS" doc:name="Set description"/>
-        <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.cp]" doc:name="Set cp_ldap (LDAP ID)"/>
+        <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.cp == null || message.inboundProperties.'http.query.params'.cp.toString().isEmpty() ? &quot;%&quot; : message.inboundProperties.'http.query.params'.cp]" doc:name="Set cp_ldap (LDAP ID)"/>
         <choice doc:name="cp_ldap is empty?">
             <when expression="#[flowVars.cp_ldap!=null &amp;&amp; flowVars.cp_ldap!='null' &amp;&amp; flowVars.cp_ldap != 'OR-w66976m']">
                 <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}#[' WHERE noid_id = \'' + flowVars.cp_ldap + '\'']" doc:name="Set query_ams_organization_ids"/>
