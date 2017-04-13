@@ -28,7 +28,7 @@ http://www.mulesoft.org/schema/mule/cors http://www.mulesoft.org/schema/mule/cor
         <exception-strategy ref="api-apiKitGlobalExceptionMapping" doc:name="Reference Exception Strategy"/>
     </flow>
     <flow name="api-console">
-        <http:listener config-ref="api-httpListenerConfig" path="/console/*" doc:name="HTTP"/>
+        <http:listener config-ref="api-httpListenerConfig" path="/api/console/*" doc:name="HTTP"/>
         <apikit:console config-ref="api-config" doc:name="APIkit Console"/>
     </flow>
     
