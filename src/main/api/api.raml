@@ -365,9 +365,11 @@ traits:
     queryParameters: 
       cp_id:
         type: string
+        required: true
         minLength: 4
         pattern: OR-.*
-        required: true
+        displayName: CP ID
+        description: The CP ID
       startIndex:
         type: integer
         required: false
@@ -382,6 +384,61 @@ traits:
         minimum: 0
         displayName: Number of results
         description: Number of results to return
+      local_id:
+        type: string
+        required: false
+        displayName: Local ID
+        description: The local_id of the sip
+      md5:
+        type: string
+        required: false
+        minLength: 32
+        maxLength: 32
+        pattern: "[a-z0-9]{32}"
+        displayName: MD5
+        description: The MD5 of the sip
+      organisation:
+        type: string
+        required: false
+        displayName: Organisation
+        description: The organisation this sip belongs to
+      filename:
+        type: string
+        required: false
+        displayName: Filename
+        description: The filename of the sip
+      archive_status:
+        type: string
+        required: false
+        displayName: Archive status
+        description: The archive status of the sip
+      pid:
+        type: string
+        required: false
+        displayName: PID
+        description: The PID of the sip
+      comment:
+        type: string
+        required: false
+        displayName: Comment
+        description: The comment of the sip
+      preingest_status:
+        type: string
+        required: false
+        displayName: Pre-ingest status
+        description: The pre-ingest status of the sip
+      from:
+        type: string
+        required: false
+        example: "2017-04-06T11:30:38"
+        displayName: From
+        description: The start date/datetime
+      until:
+        type: string
+        required: false
+        example: "2017-04-06T23:30:38"
+        displayName: Until
+        description: The end date/datetime
     is: [responses-all: {
         example200: '"data": [
           {
