@@ -1,6 +1,7 @@
 #%RAML 0.8
 title: api-gateway
 version: 2.0
+baseUri: http://do-qas-esb-01.do.viaa.be
 
 traits: 
   - responses-all: !include traits/responses.raml
@@ -401,7 +402,7 @@ traits:
         type: string
         required: false
         displayName: Organisation
-        description: The organisation this sip belongs to
+        description: The organisation name this sip belongs to
       filename:
         type: string
         required: false
@@ -412,6 +413,7 @@ traits:
         required: false
         displayName: Archive status
         description: The archive status of the sip
+        enum: ['in_progress', 'OK']
       pid:
         type: string
         required: false
@@ -430,12 +432,14 @@ traits:
       from:
         type: string
         required: false
+        default: "-infinity"
         example: "2017-04-06T11:30:38"
         displayName: From
         description: The start date/datetime
       until:
         type: string
         required: false
+        default: "infinity"
         example: "2017-04-06T23:30:38"
         displayName: Until
         description: The end date/datetime
