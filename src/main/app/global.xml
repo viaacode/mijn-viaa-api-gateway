@@ -6,7 +6,8 @@
 	xmlns:db="http://www.mulesoft.org/schema/mule/db"
 	xmlns:objectstore="http://www.mulesoft.org/schema/mule/objectstore"
 	xmlns:http="http://www.mulesoft.org/schema/mule/http"
-	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+    xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smtp/current/mule-smtp.xsd
@@ -22,8 +23,8 @@ http://www.mulesoft.org/schema/mule/oauth2 http://www.mulesoft.org/schema/mule/o
     
     
     <!-- ##### PROPERTY PLACEHOLDER ##### -->
-   	<context:property-placeholder location="production.properties"/>
-    
+   	<context:property-placeholder location="${mule.env}.properties"/>
+
     <!-- ##### HTTP Connectors ##### -->
     <http:request-config name="HTTP_MM_Request" protocol="HTTPS" host="${mm.link}" port="443" basePath="/" doc:name="HTTP Request Configuration"/>
     <http:request-config name="Slack" protocol="HTTPS" host="${slack.host}" port="${slack.port}" basePath="${slack.baseurl}" doc:name="HTTP Request Configuration">
