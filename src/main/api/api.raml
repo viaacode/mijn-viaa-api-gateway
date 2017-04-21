@@ -412,7 +412,7 @@ traits:
         required: false
         displayName: Archive status
         description: The archive status of the sip
-        enum: ['in_progress', 'OK']
+        enum: ['OK', 'NOK', 'in_progress']
       pid:
         type: string
         required: false
@@ -428,6 +428,7 @@ traits:
         required: false
         displayName: Pre-ingest status
         description: The pre-ingest status of the sip
+        enum: ['OK', 'NOK', 'TODO']
       from:
         type: string
         required: false
