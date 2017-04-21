@@ -434,42 +434,38 @@ traits:
         default: "-infinity"
         example: "2017-04-06T11:30:38"
         displayName: From
-        description: The start date/datetime
+        description: Query from last_event_date
       until:
         type: string
         required: false
         default: "infinity"
         example: "2017-04-06T23:30:38"
         displayName: Until
-        description: The end date/datetime
+        description: Query until last_event_date
     is: [responses-all: {
         example200: '"data": [
           {
-              "type": "AV",
-              "notification_sent": true,
-              "job_completed_date": "2017-03-02T14:51:45",
-              "file_count": 2,
-              "metadata": "",
-              "tenant": "pz51g0km6m_2017321488462567398",
-              "metadata_format": "MEM",
-              "complete": true,
-              "export_id": "pz51g0km6m_2017321488462567398",
-              "pid": "pz51g0km6m",
-              "id": 170970
-          },
-          {
-              "type": "AV",
-              "notification_sent": true,
-              "job_completed_date": "2017-03-02T13:57:44",
-              "file_count": 2,
-              "metadata": "",
-              "tenant": "pz51g0km6m_2017321488457134555",
-              "metadata_format": "MEM",
-              "complete": true,
-              "export_id": "pz51g0km6m_2017321488457134555",
-              "pid": "pz51g0km6m",
-              "id": 170963
-          }
+          "last_event_date": "2017-04-20T16:56:27",
+          "local_id": "1002249",
+          "comment": "Met succes verstuurd naar ingestfolder MAM",
+          "filename": "20121002_VE_BIN_PM_dl2.mov",
+          "pid": "qs058c9rf3z",
+          "md5": "a5756b2e7dcd6c1584ad1d729686b471",
+          "archive_status": "in_progress",
+          "organisation": "vlaamsparlement",
+          "preingest_status": "OK"
+        },
+        {
+          "last_event_date": "2017-04-20T15:13:06",
+          "local_id": "680985",
+          "comment": "Met succes verstuurd naar ingestfolder MAM",
+          "filename": "20120927_VE_PM_OPE.mov",
+          "pid": "qs06k06xc6f",
+          "md5": "27751d32c29cffe0987ac42a30db7e36",
+          "archive_status": "in_progress",
+          "organisation": "vlaamsparlement",
+          "preingest_status": "OK"
+        }
           ]',
         description: "Get all export jobs"}]
   /{id}:
