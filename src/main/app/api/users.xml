@@ -231,7 +231,7 @@ payload]]></dw:set-payload>
             <set-variable variableName="filename" value="avo-users-#[server.dateTime.format(&quot;yyyy_MM_dd__HH_mm_ss&quot;)].#[flowVars.format]" doc:name="Set filename"/>
             <byte-array-to-string-transformer doc:name="Byte Array to String"/>
             <ftp:outbound-endpoint host="${avo.export.host}" port="${avo.export.port}" path="${avo.export.basepath}" user="${avo.export.user}" password="${avo.export.password}" outputPattern="#[flowVars.filename]" responseTimeout="10000" doc:name="FTP"/>
-        <set-variable variableName="pathToSend" value="ftp://${avo.export.host}:${avo.export.relativepath}" doc:name="Set pathToSend"/>
+        <set-variable variableName="pathToSend" value="ftp://${avo.export.host}${avo.export.relativepath}" doc:name="Set pathToSend"/>
             <choice doc:name="Send a slack notification?">
                 <when expression="#[flowVars.slack != null &amp;&amp; !flowVars.slack.equals(&quot;&quot;)]">
                     <http:request config-ref="Slack" path="/chat.postMessage" method="POST" doc:name="Post to slack">
@@ -240,7 +240,7 @@ payload]]></dw:set-payload>
                         <http:query-param paramName="as_user" value="false"/>
                         <http:query-param paramName="username" value="${slack.username}"/>
                         <http:query-param paramName="channel" value="#[flowVars.slack]"/>
-                        <http:query-param paramName="text" value="Your user export is ready at #[flowVars.pathToSend] with name: #[flowVars.filename]"/>
+                        <http:query-param paramName="text" value="Your user export is ready at #[flowVars.pathToSend]/#[flowVars.filename]"/>
                         <http:header headerName="Content-Type" value="application/json"/>
                         </http:request-builder>
                     </http:request>
@@ -252,7 +252,7 @@ payload]]></dw:set-payload>
             </choice>
             <choice doc:name="Send an email notification?">
                 <when expression="#[flowVars.email != null &amp;&amp; !flowVars.email.equals(&quot;&quot;)]">
-                    <set-payload value="Your user export is ready at #[flowVars.pathToSend] with name: #[flowVars.filename]" doc:name="Set Payload"/>
+                    <set-payload value="Your user export is ready at #[flowVars.pathToSend]/#[flowVars.filename]" doc:name="Set Payload"/>
                     <smtp:outbound-endpoint host="${smtp.host}" port="${smtp.port}"   connector-ref="SMTP" to="#[flowVars.email]" subject="Your users export is ready" responseTimeout="10000" doc:name="SMTP" from="support@viaa.be"/>
                 </when>
                 <otherwise>
