@@ -8,13 +8,14 @@ http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee
     <apikit:config name="api-config" raml="api.raml" consoleEnabled="false" doc:name="Router"/>
     <flow name="api-main">
         <http:listener config-ref="api-httpListenerConfig" path="/api/*" doc:name="HTTP"/>
+        <logger message="HTTP request received: #[message.inboundProperties['http.request.uri']]" level="INFO" doc:name="HTTP request received"/>
         <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="Set path"/>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
         <apikit:router config-ref="api-config" doc:name="APIkit Router"/>
         <exception-strategy ref="api-apiKitGlobalExceptionMapping" doc:name="Reference Exception Strategy"/>
     </flow>
     <flow name="api-console">
-        <http:listener config-ref="api-httpListenerConfig" path="/console/*" doc:name="HTTP"/>
+        <http:listener config-ref="api-httpListenerConfig" path="/api/console/*" doc:name="HTTP"/>
         <apikit:console config-ref="api-config" doc:name="APIkit Console"/>
     </flow>
     

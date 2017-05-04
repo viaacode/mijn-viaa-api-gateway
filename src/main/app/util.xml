@@ -294,7 +294,7 @@ payload.response.items.item.dbus[11 .. 42]]]></dw:set-variable>
                 <logger level="INFO" doc:name="Change nothing"/>
             </when>
             <otherwise>
-                <set-variable variableName="cp_mam" value="#[&quot;'&quot;+ '%' + &quot;'&quot;]" doc:name="Set cp_mam to % because cp is VIAA"/>
+                <set-variable variableName="cp_mam" value="#['%']" doc:name="Set cp_mam to % because cp is VIAA"/>
             </otherwise>
         </choice>
         <set-payload value="#[flowVars.cp_mam]" doc:name="Set Payload"/>
