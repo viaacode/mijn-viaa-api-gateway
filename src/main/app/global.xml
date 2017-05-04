@@ -6,7 +6,8 @@
 	xmlns:db="http://www.mulesoft.org/schema/mule/db"
 	xmlns:objectstore="http://www.mulesoft.org/schema/mule/objectstore"
 	xmlns:http="http://www.mulesoft.org/schema/mule/http"
-	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+    xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smtp/current/mule-smtp.xsd
@@ -23,7 +24,7 @@ http://www.mulesoft.org/schema/mule/oauth2 http://www.mulesoft.org/schema/mule/o
     
     <!-- ##### PROPERTY PLACEHOLDER ##### -->
    	<context:property-placeholder location="${mule.env}.properties"/>
-    
+
     <!-- ##### HTTP Connectors ##### -->
     <http:request-config name="HTTP_MM_Request" protocol="HTTPS" host="${mm.link}" port="443" basePath="/" doc:name="HTTP Request Configuration"/>
     <http:request-config name="Slack" protocol="HTTPS" host="${slack.host}" port="${slack.port}" basePath="${slack.baseurl}" doc:name="HTTP Request Configuration">
@@ -46,7 +47,10 @@ http://www.mulesoft.org/schema/mule/oauth2 http://www.mulesoft.org/schema/mule/o
    </http:request-config>
    
 	<!-- ##### DB Connectors ##### -->
-    <db:mysql-config name="MySQL_Configuration" host="${avo.host}" port="3306" user="${avo.user}" password="${avo.password}" database="${avo.database}" doc:name="MySQL Configuration">
+    <db:mysql-config name="AvO" host="${avo.host}" port="3306" user="${avo.user}" password="${avo.password}" database="${avo.database}" doc:name="MySQL Configuration">
+        <db:connection-properties>
+            <db:property key="serverTimezone" value="Europe/Brussels"/>
+        </db:connection-properties>
     	<reconnect-forever/>
     </db:mysql-config>
     <db:mysql-config name="AMS_MySQL"      doc:name="MySQL Configuration" url="jdbc:mysql://${ams.db.host}:${ams.db.port}/${ams.db.database}?password=${ams.db.password}&amp;user=${ams.db.username}&amp;serverTimezone=Europe/Brussels">
@@ -55,7 +59,13 @@ http://www.mulesoft.org/schema/mule/oauth2 http://www.mulesoft.org/schema/mule/o
    	<db:generic-config name="Mediahaven_monitoring" url="jdbc:postgresql://${mam.db.host}:${mam.db.port}/${mam.db.database}?password=${mam.db.password}&amp;user=${mam.db.username}" driverClassName="org.postgresql.Driver" doc:name="MH monitoring DB"> 
         <reconnect-forever></reconnect-forever>  
     </db:generic-config>
+    <db:generic-config name="Exports_database" url="jdbc:postgresql://${export.db.host}:${export.db.port}/${export.db.database}?password=${export.db.password}&amp;user=${export.db.username}" driverClassName="org.postgresql.Driver" doc:name="MH monitoring DB"> 
+        <reconnect-forever></reconnect-forever>  
+    </db:generic-config>
     <db:generic-config name="Borndigital" url="jdbc:postgresql://${borndigital.db.host}:${borndigital.db.port}/${borndigital.db.database}?password=${borndigital.db.password}&amp;user=${borndigital.db.username}" driverClassName="org.postgresql.Driver" doc:name="Borndigital DB"> 
+        <reconnect-forever></reconnect-forever>  
+    </db:generic-config>
+    <db:generic-config name="Sips" url="jdbc:postgresql://${sips.db.host}:${sips.db.port}/${sips.db.database}?password=${sips.db.password}&amp;user=${sips.db.username}" driverClassName="org.postgresql.Driver" doc:name="sips DB"> 
         <reconnect-forever></reconnect-forever>  
     </db:generic-config>
     
@@ -78,6 +88,9 @@ http://www.mulesoft.org/schema/mule/oauth2 http://www.mulesoft.org/schema/mule/o
     <!-- ##### OAUTH ##### -->
     <oauth2:token-manager-config name="Token_Manager_Config"  doc:name="Token Manager Config" />
     <!-- ##### SMTP ##### -->
-    <smtp:gmail-connector name="gmailconfig" doc:name="Gmail"/>
+    <smtp:gmail-connector name="gmailconfig" doc:name="Gmail" validateConnections="true">
+    </smtp:gmail-connector>
+    
+    <smtp:connector name="SMTP" validateConnections="true" doc:name="SMTP"/>
 
 </mule>

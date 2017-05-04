@@ -12,12 +12,14 @@ http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mul
 	
 	<flow name="get:/assets/count:api-config">
 		<set-variable doc:name="Set description" value="Get asset's info based on pid" variableName="description"/>
+        <flow-ref name="datarange-mm" doc:name="datarange-mm"/>
         <set-payload doc:name="Set Payload to list of types" value="#[[&quot;video&quot;, &quot;audio&quot;, &quot;collectie&quot;, &quot;thema&quot;]]"/>
         <set-variable variableName="total" value="#[0]" doc:name="Initialize total"/>
         <set-variable variableName="resultList" value="#[new java.util.HashMap()]" doc:name="Initialize resultList"/>
         <foreach doc:name="For Each">
             <set-variable variableName="type" value="#[payload]" doc:name="Set type"/>
-            <set-variable variableName="link" value="/asset?cql=asset.asset_type%3D%22#[flowVars.type]%22" doc:name="var link"/>
+            <set-variable variableName="link" value="/asset?cql=asset.asset_type=&quot;#[flowVars.type]&quot; and asset.videotimestamp&gt;=#[flowVars.from] and asset.videotimestamp&lt;#[flowVars.until]" doc:name="var link"/>
+            <logger message="#[flowVars.link]" level="INFO" doc:name="Logger"/>
             <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
             <dw:transform-message doc:name="Update total and Create currentCount">
                 <dw:set-variable variableName="total"><![CDATA[%dw 1.0
@@ -39,7 +41,8 @@ lookup("create_response", flowVars.resultList)]]></dw:set-payload>
         </dw:transform-message>    </flow>
    	<flow name="get:/assets/count/{type}:api-config">
         <set-variable doc:name="Set description" value="Count all assets of type: #[flowVars.type]" variableName="description"/>
-        <set-variable variableName="link" value="/asset?cql=asset.asset_type%3D%22#[flowVars.type]%22" doc:name="var link"/>
+        <flow-ref name="datarange-mm" doc:name="datarange-mm"/>
+        <set-variable variableName="link" value="/asset?cql=asset.asset_type=&quot;#[flowVars.type]&quot; and asset.videotimestamp&gt;=#[flowVars.from] and asset.videotimestamp&lt;#[flowVars.until]" doc:name="var link"/>
         <flow-ref name="ref:http-call" doc:name="ref:http-call"/>
         <dw:transform-message doc:name="var count">
             <dw:set-payload><![CDATA[%dw 1.0
