@@ -53,7 +53,10 @@ http://www.mulesoft.org/schema/mule/oauth2 http://www.mulesoft.org/schema/mule/o
         </db:connection-properties>
     	<reconnect-forever/>
     </db:mysql-config>
-    <db:mysql-config name="AMS_MySQL"      doc:name="MySQL Configuration" url="jdbc:mysql://${ams.db.host}:${ams.db.port}/${ams.db.database}?password=${ams.db.password}&amp;user=${ams.db.username}&amp;serverTimezone=Europe/Brussels">
+    <db:mysql-config name="AMS_MySQL"      doc:name="MySQL Configuration" url="jdbc:mysql://${ams.db.host}:${ams.db.port}/${ams.db.database}?password=${ams.db.password}&amp;user=${ams.db.username}">
+    <db:connection-properties>
+            <db:property key="serverTimezone" value="Europe/Brussels"/>
+        </db:connection-properties>
         <reconnect-forever/>
     </db:mysql-config>
    	<db:generic-config name="Mediahaven_monitoring" url="jdbc:postgresql://${mam.db.host}:${mam.db.port}/${mam.db.database}?password=${mam.db.password}&amp;user=${mam.db.username}" driverClassName="org.postgresql.Driver" doc:name="MH monitoring DB"> 
