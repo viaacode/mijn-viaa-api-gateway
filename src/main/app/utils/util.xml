@@ -370,13 +370,13 @@ payload.response.items.item.dbus[11 .. 42]]]></dw:set-variable>
     </sub-flow>
 
 	<sub-flow name="ldap2mam">
-        <http:request config-ref="ldap2mam_http" path="/api/org" method="GET" doc:name="Request MAM ID at ldap2mam">
+        <http:request config-ref="ldap2mam_http" path="/api/org/{id}" method="GET" doc:name="Request MAM ID at ldap2mam">
             <http:request-builder>
-                <http:query-param paramName="ldap_id" value="#[flowVars.cp_ldap]"/>
+                <http:uri-param paramName="id" value="#[flowVars.cp_ldap]"/>
             </http:request-builder>
         </http:request>
         <json:json-to-object-transformer doc:name="JSON to Object"/>
-        <set-variable variableName="cp_mam" value="#[payload.get('data').get('organization').asText()]" doc:name="Set cp_mam"/>
+        <set-variable variableName="cp_mam" value="#[payload.get('data').get('cp_name').asText()]" doc:name="Set cp_mam with cp_name (because it is still viaa_ingest table)"/>
         <choice doc:name="Is cp_mam VIAA?">
             <when expression="#[flowVars.cp_mam != 'VIAA']">
                 <logger level="INFO" doc:name="Change nothing"/>
