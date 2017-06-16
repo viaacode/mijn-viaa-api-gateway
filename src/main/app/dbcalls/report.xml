@@ -152,11 +152,10 @@ if (!flowVars.sources.contains("MAM")) {
 	flowVars.sources.add("MAM");
 }]]></expression-component>
         <db:select config-ref="Mediahaven_monitoring" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT case when mime_type LIKE '%video%' then 'video' else mime_type end mime_type,  count(case when status = 'OK' then 1 end) archived_amount_ok,  sum(case when status = 'OK' and carrier_size is not null then carrier_size else 0 end) archived_bytes_ok, count(case when status = 'NOK' then 1 end) archived_amount_nok,  sum(case when status = 'NOK' and carrier_size is not null then carrier_size else 0 end) archived_bytes_nok
-FROM ${mam.db.datatable.pids}
-WHERE status IN ('OK', 'NOK')
-AND content_provider LIKE(#[flowVars.cp_mam])
-GROUP BY case when mime_type LIKE '%video%' then 'video' else mime_type end
+            <db:parameterized-query><![CDATA[SELECT type mime_type,  count(case when archive_status IN ('on_tape', 'on_disk') then 1 end) archived_amount_ok,  sum(case when archive_status IN ('on_tape', 'on_disk') and filesize is not null then filesize else 0 end) archived_bytes_ok, count(case when archive_status NOT IN ('on_tape', 'on_disk') then 1 end) archived_amount_nok,  sum(case when archive_status NOT IN ('on_tape', 'on_disk') and filesize is not null then filesize else 0 end) archived_bytes_nok
+FROM sips
+WHERE organisation = #[flowVars.cp_mam]
+GROUP BY type
 ORDER BY archived_amount_ok DESC;]]></db:parameterized-query>
         </db:select>
     </flow>
