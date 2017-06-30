@@ -127,17 +127,15 @@ if (!flowVars.sources.contains("MAM")) {
 	flowVars.sources.add("MAM");
 }]]></expression-component>
         <db:select config-ref="Mediahaven_monitoring" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.month) x, case when (count(1) OVER (PARTITION BY m.month)) = 1 then 0 else count(1) OVER (PARTITION BY m.month) end items, case when (sum(carrier_size) OVER (PARTITION BY m.month)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.month) end bytes 
+            <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.month) x, case when (count(1) OVER (PARTITION BY m.month)) = 1 then 0 else count(1) OVER (PARTITION BY m.month) end items, case when (sum(filesize) OVER (PARTITION BY m.month)) is null then 0 else sum(filesize) OVER (PARTITION BY m.month) end bytes 
 FROM (
- SELECT generate_series(date_trunc('month', min(date)) , max(date), '1 month') AS month
- FROM pids) m
+ SELECT generate_series(min(month) , max(month), '1 month') AS month
+ FROM report_mam_filesize
+ WHERE organisation = #[flowVars.cp_mam]) m
 LEFT JOIN (
-    SELECT date_trunc('month', date) AS month, carrier_size
-    FROM pids
-    WHERE content_provider LIKE #[flowVars.cp_mam]
-    AND status = 'OK'
-    AND pid IN (
-        SELECT pid FROM events WHERE key = 'ARCHIVED_ON_TAPE_VAULT')
+    SELECT month, filesize
+    FROM report_mam_filesize
+    WHERE organisation = #[flowVars.cp_mam]
 ) c USING (month)
 ORDER BY 1;]]></db:parameterized-query>
         </db:select>
@@ -169,24 +167,20 @@ if (!flowVars.sources.contains("MAM")) {
 	flowVars.sources.add("MAM");
 }]]></expression-component>
         <db:select config-ref="Mediahaven_monitoring" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.month) x, case when (count(1) OVER (PARTITION BY m.month)) = 1 then 0 else count(1) OVER (PARTITION BY m.month) end items, case when (sum(carrier_size) OVER (PARTITION BY m.month)) is null then 0 else sum(carrier_size) OVER (PARTITION BY m.month) end bytes
+            <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.month) x, case when (count(1) OVER (PARTITION BY m.month)) = 1 then 0 else count(1) OVER (PARTITION BY m.month) end items, case when (sum(filesize) OVER (PARTITION BY m.month)) is null then 0 else sum(filesize) OVER (PARTITION BY m.month) end bytes
 FROM (
-    SELECT generate_series(date_trunc('month', min(date)) , max(date), '1 month') AS month
-    FROM pids
-    WHERE date >= #[flowVars.start]
+    SELECT generate_series(date_trunc('month', min(archive_date)) , max(archive_date), '1 month') AS month
+    FROM sips
+    WHERE organisation = #[flowVars.cp_mam]
+    AND archive_status IN ('on_tape', 'on_disk')
+    AND date >= #[flowVars.start]
 ) m
 LEFT JOIN (
-    SELECT date_trunc('month', date) AS month, carrier_size
-    FROM pids
-    WHERE date >= #[flowVars.start]
-    AND content_provider LIKE #[flowVars.cp_mam]
-    AND status = 'OK'
-    AND pid IN (
-        SELECT pid
-        FROM events
-        WHERE date >= #[flowVars.start]
-        AND key = 'ARCHIVED_ON_TAPE_VAULT'
-    )
+    SELECT date_trunc('month', archive_date) AS month, filesize
+    FROM sips
+    WHERE organisation = #[flowVars.cp_mam]
+    AND archive_status IN ('on_tape', 'on_disk')
+    AND date >= #[flowVars.start]
 ) c
 USING (month) ORDER BY 1;]]></db:parameterized-query>
         </db:select>
