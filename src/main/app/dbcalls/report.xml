@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+<mule xmlns:quartz="http://www.mulesoft.org/schema/mule/quartz" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:db="http://www.mulesoft.org/schema/mule/db"
 	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
 http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
 http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
-http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/quartz http://www.mulesoft.org/schema/mule/quartz/current/mule-quartz.xsd">
+    <quartz:connector name="MatViewQuartz" validateConnections="true" doc:name="Quartz"/>
 
 <flow name="db:/report/ams">
         <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
@@ -126,18 +128,10 @@ ORDER BY MIN(created_on) ASC;]]></db:parameterized-query>
 if (!flowVars.sources.contains("MAM")) {
 	flowVars.sources.add("MAM");
 }]]></expression-component>
-        <db:select config-ref="Mediahaven_monitoring" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.month) x, case when (count(1) OVER (PARTITION BY m.month)) = 1 then 0 else count(1) OVER (PARTITION BY m.month) end items, case when (sum(filesize) OVER (PARTITION BY m.month)) is null then 0 else sum(filesize) OVER (PARTITION BY m.month) end bytes 
-FROM (
- SELECT generate_series(min(month) , max(month), '1 month') AS month
- FROM report_mam_filesize
- WHERE organisation = #[flowVars.cp_mam]) m
-LEFT JOIN (
-    SELECT month, filesize
-    FROM report_mam_filesize
-    WHERE organisation = #[flowVars.cp_mam]
-) c USING (month)
-ORDER BY 1;]]></db:parameterized-query>
+        <db:select config-ref="Reporting" doc:name="Database">
+            <db:parameterized-query><![CDATA[select *
+from report_mam
+where organisation = #[flowVars.cp_mam];]]></db:parameterized-query>
         </db:select>
     </flow>
     
@@ -150,11 +144,9 @@ if (!flowVars.sources.contains("MAM")) {
 	flowVars.sources.add("MAM");
 }]]></expression-component>
         <db:select config-ref="Mediahaven_monitoring" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT type mime_type,  count(case when archive_status IN ('on_tape', 'on_disk') then 1 end) archived_amount_ok,  sum(case when archive_status IN ('on_tape', 'on_disk') and filesize is not null then filesize else 0 end) archived_bytes_ok, count(case when archive_status NOT IN ('on_tape', 'on_disk') then 1 end) archived_amount_nok,  sum(case when archive_status NOT IN ('on_tape', 'on_disk') and filesize is not null then filesize else 0 end) archived_bytes_nok
-FROM sips
-WHERE organisation = #[flowVars.cp_mam]
-GROUP BY type
-ORDER BY archived_amount_ok DESC;]]></db:parameterized-query>
+            <db:parameterized-query><![CDATA[select *
+from report_mam_global
+where organisation = #[flowVars.cp_mam]]]></db:parameterized-query>
         </db:select>
     </flow>
     
@@ -167,23 +159,26 @@ if (!flowVars.sources.contains("MAM")) {
 	flowVars.sources.add("MAM");
 }]]></expression-component>
         <db:select config-ref="Mediahaven_monitoring" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT distinct extract(epoch from m.month) x, case when (count(1) OVER (PARTITION BY m.month)) = 1 then 0 else count(1) OVER (PARTITION BY m.month) end items, case when (sum(filesize) OVER (PARTITION BY m.month)) is null then 0 else sum(filesize) OVER (PARTITION BY m.month) end bytes
-FROM (
-    SELECT generate_series(date_trunc('month', min(archive_date)) , max(archive_date), '1 month') AS month
-    FROM sips
-    WHERE organisation = #[flowVars.cp_mam]
-    AND archive_status IN ('on_tape', 'on_disk')
-    AND date >= #[flowVars.start]
-) m
-LEFT JOIN (
-    SELECT date_trunc('month', archive_date) AS month, filesize
-    FROM sips
-    WHERE organisation = #[flowVars.cp_mam]
-    AND archive_status IN ('on_tape', 'on_disk')
-    AND date >= #[flowVars.start]
-) c
-USING (month) ORDER BY 1;]]></db:parameterized-query>
+            <db:parameterized-query><![CDATA[select *
+from report_mam
+where organisation = #[flowVars.cp_mam]
+    AND date >= #[flowVars.start]]]></db:parameterized-query>
         </db:select>
+    </flow>
+    <flow name="reportFlow">
+        <quartz:inbound-endpoint jobName="matviews" repeatInterval="3600000" startDelay="100" connector-ref="MatViewQuartz" responseTimeout="10000" doc:name="Reload materialized views">
+            <quartz:event-generator-job/>
+        </quartz:inbound-endpoint>
+        <logger message="Start reload materialized view mam" level="INFO" doc:name="Start reload materialized view mam"/>
+        <db:execute-ddl config-ref="Reporting" doc:name="Refresh materialized views for MAM">
+            <db:dynamic-query><![CDATA[REFRESH MATERIALIZED VIEW CONCURRENTLY report_mam;]]></db:dynamic-query>
+        </db:execute-ddl>
+        <logger message="End reload mam" level="INFO" doc:name="End reload mam"/>
+        <logger message="Start reload mam global stats" level="INFO" doc:name="Start reload mam global stats"/>
+        <db:execute-ddl config-ref="Reporting" doc:name="Refresh materialized views for MAM global stats">
+            <db:dynamic-query><![CDATA[REFRESH MATERIALIZED VIEW CONCURRENTLY report_mam_global;]]></db:dynamic-query>
+        </db:execute-ddl>
+        <logger message="End reload mam global stats" level="INFO" doc:name="End reload mam global stats"/>
     </flow>
 
 </mule>

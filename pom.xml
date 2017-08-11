@@ -184,6 +184,12 @@
             <artifactId>postgresql</artifactId>
             <version>9.4.1212.jre6</version>
         </dependency>
+    <dependency>
+            <groupId>org.mule.transports</groupId>
+            <artifactId>mule-transport-quartz</artifactId>
+            <version>${mule.version}</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
 	<repositories>
