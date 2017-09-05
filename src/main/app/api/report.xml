@@ -25,9 +25,10 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
             </when>
             <otherwise>
                 <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}" doc:name="Set query_ams_organization_ids to every organization"/>
+                <set-variable variableName="cp_ldap" value="#['%']" doc:name="Set cp_ldap to %"/>
             </otherwise>
         </choice>
-        <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'last-day':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
+        <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'all-time':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
         <ee:cache cachingStrategy-ref="Caching_AMS" doc:name="Cache">
             <choice doc:name="Last-day, last-week, last-month, last-year or all-time?">
             	<when expression="#[flowVars.granularity.equals('all-time')]">
@@ -109,9 +110,9 @@ lookup("create_response",
 	<flow name="get:/report/mam:api-config">
         <set-variable variableName="description" value="Get all archived assets for a content provider within a specific period from MAM" doc:name="Set description"/>
         <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.cp]" doc:name="Set cp_ldap (LDAP ID)"/>
-        <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'last-day':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
-        <choice doc:name="cp_ldap is empty?">
-            <when expression="#[flowVars.cp_ldap!=null &amp;&amp; flowVars.cp_ldap!='null']">
+        <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'all-time':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
+        <choice doc:name="cp_ldap is empty and not viaa?">
+            <when expression="#[flowVars.cp_ldap!=null &amp;&amp; flowVars.cp_ldap!='null'&amp;&amp;flowVars.cp_ldap!='OR-w66976m']">
                 <flow-ref name="ldap2mam" doc:name="ldap2mam"/>
             </when>
             <otherwise>

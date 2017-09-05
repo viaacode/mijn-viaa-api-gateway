@@ -27,6 +27,23 @@ GROUP BY EXTRACT(year_month from created_on)
 ORDER BY MIN(created_on) ASC;]]></db:parameterized-query>
         </db:select>
     </flow>
+    <flow name="db:/report/ams-created">
+        <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("AMS")) {
+	flowVars.sources.add("AMS");
+}]]></expression-component>
+        <db:select config-ref="AMS_MySQL" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT EXTRACT(year_month from created_on), UNIX_TIMESTAMP(MIN(created_on)) x, COUNT(1) total_registered, SUM(CASE WHEN carrier_type_id = 1 THEN 1 ELSE 0 END) audio_registered, SUM(CASE WHEN carrier_type_id = 2 THEN 1 ELSE 0 END) video_registered, SUM(CASE WHEN carrier_type_id = 3 THEN 1 ELSE 0 END) paper_registered, SUM(CASE WHEN carrier_type_id = 4 THEN 1 ELSE 0 END) film_registered
+FROM ${ams.db.carrier}
+WHERE organization_id IN (SELECT id FROM ${ams.db.organizations} WHERE noid_id LIKE(#[flowVars.cp_ldap]))
+AND created_on >= #[flowVars.start]
+GROUP BY EXTRACT(year_month from created_on)
+ORDER BY MIN(created_on) ASC;]]></db:parameterized-query>
+        </db:select>
+    </flow>
     
     <flow name="db:/report/global/ams/registered">
         <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
@@ -102,24 +119,6 @@ AND carrier_id IN ( select id from ${ams.db.carrier} where organization_id IN (S
         </db:select>
     </flow>
     
-    <flow name="db:/report/ams-created">
-        <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
-	flowVars.sources = new java.util.ArrayList();
-}
-
-if (!flowVars.sources.contains("AMS")) {
-	flowVars.sources.add("AMS");
-}]]></expression-component>
-        <db:select config-ref="AMS_MySQL" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT EXTRACT(year_month from created_on), UNIX_TIMESTAMP(MIN(created_on)) x, COUNT(1) total_registered, SUM(CASE WHEN carrier_type_id = 1 THEN 1 ELSE 0 END) audio_registered, SUM(CASE WHEN carrier_type_id = 2 THEN 1 ELSE 0 END) video_registered, SUM(CASE WHEN carrier_type_id = 3 THEN 1 ELSE 0 END) paper_registered, SUM(CASE WHEN carrier_type_id = 4 THEN 1 ELSE 0 END) film_registered
-FROM ${ams.db.carrier}
-WHERE organization_id IN (SELECT id FROM ${ams.db.organizations} WHERE noid_id LIKE(#[flowVars.cp_ldap]))
-AND created_on >= #[flowVars.start]
-GROUP BY EXTRACT(year_month from created_on)
-ORDER BY MIN(created_on) ASC;]]></db:parameterized-query>
-        </db:select>
-    </flow>
-    
     <flow name="db:/report/mam">
         <expression-component doc:name="Add MAM as source"><![CDATA[if (flowVars.sources == null) {
 	flowVars.sources = new java.util.ArrayList();
@@ -128,11 +127,24 @@ ORDER BY MIN(created_on) ASC;]]></db:parameterized-query>
 if (!flowVars.sources.contains("MAM")) {
 	flowVars.sources.add("MAM");
 }]]></expression-component>
-        <db:select config-ref="Reporting" doc:name="Database">
-            <db:parameterized-query><![CDATA[select *
+        <choice doc:name="When cp_mam == '%'">
+            <when expression="#[flowVars.cp_mam == '%']">
+                <db:select config-ref="Reporting" doc:name="Database">
+                    <db:parameterized-query><![CDATA[select x, sum(bytes) bytes, sum(items) items
 from report_mam
-where organisation = #[flowVars.cp_mam];]]></db:parameterized-query>
-        </db:select>
+group by x
+order by x asc]]></db:parameterized-query>
+                </db:select>
+            </when>
+            <otherwise>
+                <db:select config-ref="Reporting" doc:name="Database">
+                    <db:parameterized-query><![CDATA[select *
+from report_mam
+where organisation = #[flowVars.cp_mam]
+order by x asc]]></db:parameterized-query>
+                </db:select>
+            </otherwise>
+        </choice>
     </flow>
     
         <flow name="db:/report/global/mam">
@@ -143,11 +155,22 @@ where organisation = #[flowVars.cp_mam];]]></db:parameterized-query>
 if (!flowVars.sources.contains("MAM")) {
 	flowVars.sources.add("MAM");
 }]]></expression-component>
-        <db:select config-ref="Mediahaven_monitoring" doc:name="Database">
-            <db:parameterized-query><![CDATA[select *
+        <choice doc:name="When cp_mam == '%'">
+            <when expression="#[flowVars.cp_mam == '%']">
+                <db:select config-ref="Reporting" doc:name="Database">
+                    <db:parameterized-query><![CDATA[select mime_type, sum(archived_amount_ok) archived_amount_ok, sum(archived_amount_nok) archived_amount_nok, sum(archived_bytes_ok) archived_bytes_ok, sum(archived_bytes_nok) archived_bytes_nok
+from report_mam_global
+group by mime_type]]></db:parameterized-query>
+                </db:select>
+            </when>
+            <otherwise>
+                <db:select config-ref="Mediahaven_monitoring" doc:name="Database">
+                    <db:parameterized-query><![CDATA[select *
 from report_mam_global
 where organisation = #[flowVars.cp_mam]]]></db:parameterized-query>
-        </db:select>
+                </db:select>
+            </otherwise>
+        </choice>
     </flow>
     
     <flow name="db:/report/mam-created">
@@ -158,12 +181,26 @@ where organisation = #[flowVars.cp_mam]]]></db:parameterized-query>
 if (!flowVars.sources.contains("MAM")) {
 	flowVars.sources.add("MAM");
 }]]></expression-component>
-        <db:select config-ref="Mediahaven_monitoring" doc:name="Database">
-            <db:parameterized-query><![CDATA[select *
+        <choice doc:name="When cp_mam == '%'">
+            <when expression="#[flowVars.cp_mam == '%']">
+                <db:select config-ref="Reporting" doc:name="Database">
+                    <db:parameterized-query><![CDATA[select x, sum(bytes) bytes, sum(items) items
 from report_mam
-where organisation = #[flowVars.cp_mam]
-    AND date >= #[flowVars.start]]]></db:parameterized-query>
-        </db:select>
+where date >= #[flowVars.start]
+group by x
+order by x asc]]></db:parameterized-query>
+                </db:select>
+            </when>
+            <otherwise>
+                <db:select config-ref="Reporting" doc:name="Database">
+                    <db:parameterized-query><![CDATA[select *
+from report_mam
+where organisation = #[flowVars.cp_mam] 
+		AND date >= #[flowVars.start]
+order by x asc]]></db:parameterized-query>
+                </db:select>
+            </otherwise>
+        </choice>
     </flow>
     <flow name="reportFlow">
         <quartz:inbound-endpoint jobName="matviews" repeatInterval="3600000" startDelay="100" connector-ref="MatViewQuartz" responseTimeout="10000" doc:name="Reload materialized views">
