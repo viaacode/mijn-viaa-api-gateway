@@ -370,9 +370,9 @@ payload.response.items.item.dbus[11 .. 42]]]></dw:set-variable>
     </sub-flow>
 
 	<sub-flow name="ldap2mam">
-        <http:request config-ref="ldap2mam_http" path="/api/org/{id}" method="GET" doc:name="Request MAM ID at ldap2mam">
+        <http:request config-ref="ldap2mam_http" path="/api/org/{or_id}" method="GET" doc:name="Request MAM ID at ldap2mam">
             <http:request-builder>
-                <http:uri-param paramName="id" value="#[flowVars.cp_ldap]"/>
+                <http:uri-param paramName="or_id" value="#[flowVars.cp_ldap]"/>
             </http:request-builder>
         </http:request>
         <json:json-to-object-transformer doc:name="JSON to Object"/>
