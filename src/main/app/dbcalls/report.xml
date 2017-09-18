@@ -11,7 +11,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 http://www.mulesoft.org/schema/mule/quartz http://www.mulesoft.org/schema/mule/quartz/current/mule-quartz.xsd">
     <quartz:connector name="MatViewQuartz" validateConnections="true" doc:name="Quartz"/>
 
-<flow name="db:/report/ams">
+<flow name="db:/report/ams-registered-all-time">
         <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
 	flowVars.sources = new java.util.ArrayList();
 }
@@ -19,15 +19,14 @@ http://www.mulesoft.org/schema/mule/quartz http://www.mulesoft.org/schema/mule/q
 if (!flowVars.sources.contains("AMS")) {
 	flowVars.sources.add("AMS");
 }]]></expression-component>
-        <db:select config-ref="AMS_MySQL" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT EXTRACT(year_month from created_on), UNIX_TIMESTAMP(MIN(created_on)) x, COUNT(1) total_registered, SUM(CASE WHEN carrier_type_id = 1 THEN 1 ELSE 0 END) audio_registered, SUM(CASE WHEN carrier_type_id = 2 THEN 1 ELSE 0 END) video_registered, SUM(CASE WHEN carrier_type_id = 3 THEN 1 ELSE 0 END) paper_registered, SUM(CASE WHEN carrier_type_id = 4 THEN 1 ELSE 0 END) film_registered
-FROM ${ams.db.carrier}
-WHERE organization_id IN (SELECT id FROM ${ams.db.organizations} WHERE noid_id LIKE #[flowVars.cp_ldap])
-GROUP BY EXTRACT(year_month from created_on)
-ORDER BY MIN(created_on) ASC;]]></db:parameterized-query>
+        <db:select config-ref="Reporting" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT *
+FROM report_ams_registered_all_time
+WHERE noid_id LIKE #[flowVars.cp_ldap]
+ORDER BY x ASC;]]></db:parameterized-query>
         </db:select>
     </flow>
-    <flow name="db:/report/ams-created">
+    <flow name="db:/report/ams-registered-last-year">
         <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
 	flowVars.sources = new java.util.ArrayList();
 }
@@ -35,13 +34,43 @@ ORDER BY MIN(created_on) ASC;]]></db:parameterized-query>
 if (!flowVars.sources.contains("AMS")) {
 	flowVars.sources.add("AMS");
 }]]></expression-component>
-        <db:select config-ref="AMS_MySQL" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT EXTRACT(year_month from created_on), UNIX_TIMESTAMP(MIN(created_on)) x, COUNT(1) total_registered, SUM(CASE WHEN carrier_type_id = 1 THEN 1 ELSE 0 END) audio_registered, SUM(CASE WHEN carrier_type_id = 2 THEN 1 ELSE 0 END) video_registered, SUM(CASE WHEN carrier_type_id = 3 THEN 1 ELSE 0 END) paper_registered, SUM(CASE WHEN carrier_type_id = 4 THEN 1 ELSE 0 END) film_registered
-FROM ${ams.db.carrier}
-WHERE organization_id IN (SELECT id FROM ${ams.db.organizations} WHERE noid_id LIKE(#[flowVars.cp_ldap]))
-AND created_on >= #[flowVars.start]
-GROUP BY EXTRACT(year_month from created_on)
-ORDER BY MIN(created_on) ASC;]]></db:parameterized-query>
+        <db:select config-ref="Reporting" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT *
+FROM report_ams_registered_last_year
+WHERE noid_id LIKE #[flowVars.cp_ldap]
+ORDER BY x ASC;]]></db:parameterized-query>
+        </db:select>
+    </flow>
+    
+    <flow name="db:/report/ams-registered-last-month">
+        <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("AMS")) {
+	flowVars.sources.add("AMS");
+}]]></expression-component>
+        <db:select config-ref="Reporting" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT *
+FROM report_ams_registered_last_month
+WHERE noid_id LIKE #[flowVars.cp_ldap]
+ORDER BY x ASC;]]></db:parameterized-query>
+        </db:select>
+    </flow>
+    
+    <flow name="db:/report/ams-registered-last-week">
+        <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("AMS")) {
+	flowVars.sources.add("AMS");
+}]]></expression-component>
+        <db:select config-ref="Reporting" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT *
+FROM report_ams_registered_last_week
+WHERE noid_id LIKE #[flowVars.cp_ldap]
+ORDER BY x ASC;]]></db:parameterized-query>
         </db:select>
     </flow>
     
@@ -53,10 +82,10 @@ ORDER BY MIN(created_on) ASC;]]></db:parameterized-query>
 if (!flowVars.sources.contains("AMS")) {
 	flowVars.sources.add("AMS");
 }]]></expression-component>
-        <db:select config-ref="AMS_MySQL" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT count(1) total_registered, sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered, sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered, sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered, sum(case when carrier_type_id = 4 then 1 else 0 end) film_registered
-FROM ${ams.db.carrier}
-WHERE organization_id IN (SELECT id FROM ${ams.db.organizations} WHERE noid_id LIKE(#[flowVars.cp_ldap]));]]></db:parameterized-query>
+        <db:select config-ref="Reporting" doc:name="Database">
+            <db:parameterized-query><![CDATA[select *
+from report_ams_registered_global
+WHERE noid_id LIKE #[flowVars.cp_ldap];]]></db:parameterized-query>
         </db:select>
     </flow>
     
@@ -69,7 +98,7 @@ if (!flowVars.sources.contains("AMS")) {
 	flowVars.sources.add("AMS");
 }]]></expression-component>
         <db:select config-ref="AMS_MySQL" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 1 then 1 else 0 end) audio_registered_and_not_digitised, sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 2 then 1 else 0 end) video_registered_and_not_digitised, sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 4 then 1 else 0 end) film_registered_and_not_digitised, sum(case when e.event_outcome = 1 and c.carrier_type_id = 1 then 1 else 0 end) audio_digitised_ok, sum(case when e.event_outcome = 0 and c.carrier_type_id = 1 then 1 else 0 end) audio_digitised_nok, sum(case when e.event_outcome = 1 and c.carrier_type_id = 2 then 1 else 0 end) video_digitised_ok, sum(case when e.event_outcome = 0 and c.carrier_type_id = 2 then 1 else 0 end) video_digitised_nok, sum(case when e.event_outcome = 1 and c.carrier_type_id = 4 then 1 else 0 end) film_digitised_ok, sum(case when e.event_outcome = 0 and c.carrier_type_id = 4 then 1 else 0 end) film_digitised_nok
+            <db:parameterized-query><![CDATA[SELECT sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 1 then 1 else 0 end) audio_registered_and_not_digitised, sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 2 then 1 else 0 end) video_registered_and_not_digitised, sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 4 then 1 else 0 end) film_registered_and_not_digitised, sum(case when e.event_outcome = 1 and c.carrier_type_id = 1 then 1 else 0 end) audio_digitised_ok, sum(case whkraen e.event_outcome = 0 and c.carrier_type_id = 1 then 1 else 0 end) audio_digitised_nok, sum(case when e.event_outcome = 1 and c.carrier_type_id = 2 then 1 else 0 end) video_digitised_ok, sum(case when e.event_outcome = 0 and c.carrier_type_id = 2 then 1 else 0 end) video_digitised_nok, sum(case when e.event_outcome = 1 and c.carrier_type_id = 4 then 1 else 0 end) film_digitised_ok, sum(case when e.event_outcome = 0 and c.carrier_type_id = 4 then 1 else 0 end) film_digitised_nok
 FROM ams.carrier c
 LEFT JOIN ams.events e ON c.id = e.carrier_id and e.id = (
     SELECT max(id)

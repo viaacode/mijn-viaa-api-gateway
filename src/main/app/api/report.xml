@@ -33,30 +33,23 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
             <choice doc:name="Last-day, last-week, last-month, last-year or all-time?">
             	<when expression="#[flowVars.granularity.equals('all-time')]">
                     <logger message="all-time = no start and end" level="INFO" doc:name="all-time = no start and end"/>
-                    <flow-ref name="db:/report/ams" doc:name="db:/report/ams"/>
+                    <flow-ref name="db:/report/ams-registered-all-time" doc:name="db:/report/ams-registered-all-time"/>
                 </when>
                 <when expression="#[flowVars.granularity.equals('last-year')]">
                     <logger message="1 year" level="INFO" doc:name="1 year = last 12 months"/>
-                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusYears(-1).toString()]" doc:name="Set start (now() - 1 year)"/>
-                    <flow-ref name="db:/report/ams-created" doc:name="db:/report/ams-created"/>
+                    <flow-ref name="db:/report/ams-registered-last-year" doc:name="db:/report/ams-registered-last-year"/>
                 </when>
                 <when expression="#[flowVars.granularity.equals('last-month')]">
                     <logger message="1 month" level="INFO" doc:name="1 month = last 30 days"/>
-                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusMonths(-1).toString()]" doc:name="Set start (now() - 1 month)"/>
-                    <flow-ref name="db:/report/ams-created" doc:name="db:/report/ams-created"/>
+                    <flow-ref name="db:/report/ams-registered-last-month" doc:name="db:/report/ams-registered-last-month"/>
                 </when>
                 <when expression="#[flowVars.granularity.equals('last-week')]">
                     <logger message="1 week" level="INFO" doc:name="1 week = last 7 days"/>
                     <set-variable variableName="start" value="#[server.dateTime.getDate().plusWeeks(-1).toString()]" doc:name="Set start (now() - 1 week)"/>
-                    <flow-ref name="db:/report/ams-created" doc:name="db:/report/ams-created"/>
-                </when>
-                <when expression="#[flowVars.granularity.equals('last-day')]">
-                    <logger message="Live data" level="INFO" doc:name="Last day = 24 hours for every 1 hour"/>
-                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusDays(-1).toString()]" doc:name="Set start (now() - 1 day)"/>
-                    <flow-ref name="db:/report/ams-created" doc:name="db:/report/ams-created"/>
+                    <flow-ref name="db:/report/ams-registered-last-week" doc:name="db:/report/ams-registered-last-week"/>
                 </when>
                 <otherwise>
-                    <logger message="Bad granularity, use last-year, last-month, last-week or last-day" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
+                    <logger message="Bad granularity, use al-time, last-year, last-month, last-week" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
                 </otherwise>
             </choice>
         </ee:cache>
