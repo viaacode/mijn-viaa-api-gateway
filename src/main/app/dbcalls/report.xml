@@ -82,11 +82,21 @@ ORDER BY x ASC;]]></db:parameterized-query>
 if (!flowVars.sources.contains("AMS")) {
 	flowVars.sources.add("AMS");
 }]]></expression-component>
-        <db:select config-ref="Reporting" doc:name="Database">
-            <db:parameterized-query><![CDATA[select *
+        <choice doc:name="When cp_mam == '%'">
+            <when expression="#[flowVars.cp_mam == '%']">
+                <db:select config-ref="Reporting" doc:name="Database">
+                    <db:parameterized-query><![CDATA[select sum(total_registered) total_registered, sum(audio_registered) audio_registered, sum(video_registered) video_registered, sum(paper_registered) paper_registered, sum(film_registered) film_registered
+from report_ams_registered_global;]]></db:parameterized-query>
+                </db:select>
+            </when>
+            <otherwise>
+                <db:select config-ref="Reporting" doc:name="Database">
+                    <db:parameterized-query><![CDATA[select *
 from report_ams_registered_global
 WHERE noid_id LIKE #[flowVars.cp_ldap];]]></db:parameterized-query>
-        </db:select>
+                </db:select>
+            </otherwise>
+        </choice>
     </flow>
     
         <flow name="db:/report/global/ams/digitized">
@@ -97,55 +107,31 @@ WHERE noid_id LIKE #[flowVars.cp_ldap];]]></db:parameterized-query>
 if (!flowVars.sources.contains("AMS")) {
 	flowVars.sources.add("AMS");
 }]]></expression-component>
-        <db:select config-ref="AMS_MySQL" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 1 then 1 else 0 end) audio_registered_and_not_digitised, sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 2 then 1 else 0 end) video_registered_and_not_digitised, sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 4 then 1 else 0 end) film_registered_and_not_digitised, sum(case when e.event_outcome = 1 and c.carrier_type_id = 1 then 1 else 0 end) audio_digitised_ok, sum(case whkraen e.event_outcome = 0 and c.carrier_type_id = 1 then 1 else 0 end) audio_digitised_nok, sum(case when e.event_outcome = 1 and c.carrier_type_id = 2 then 1 else 0 end) video_digitised_ok, sum(case when e.event_outcome = 0 and c.carrier_type_id = 2 then 1 else 0 end) video_digitised_nok, sum(case when e.event_outcome = 1 and c.carrier_type_id = 4 then 1 else 0 end) film_digitised_ok, sum(case when e.event_outcome = 0 and c.carrier_type_id = 4 then 1 else 0 end) film_digitised_nok
-FROM ams.carrier c
-LEFT JOIN ams.events e ON c.id = e.carrier_id and e.id = (
-    SELECT max(id)
-    FROM ams.events x
-    WHERE x.carrier_id = c.id
-    AND event_lookup_id = 5)
-WHERE carrier_id IN (
-    SELECT id
-    FROM ${ams.db.carrier}
-    WHERE organization_id IN (SELECT id FROM ${ams.db.organizations} WHERE noid_id LIKE(#[flowVars.cp_ldap]))
-);]]></db:parameterized-query>
-        </db:select>
-    </flow>
-    
-        <flow name="db:/report/global/ams/digitized_paper">
-        <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
-	flowVars.sources = new java.util.ArrayList();
-}
-
-if (!flowVars.sources.contains("AMS")) {
-	flowVars.sources.add("AMS");
-}]]></expression-component>
-        <db:select config-ref="AMS_MySQL" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT sum(case when e.event_outcome = 1 then 1 else 0 end) paper_digitised_ok, sum(case when e.event_outcome = 0 then 1 else 0 end) paper_digitised_nok
-FROM ${ams.db.paper_event} e
-WHERE event_lookup_id = 5
-AND carrier_id IN (
-    select id
-    from ${ams.db.carrier}
-    where organization_id IN (SELECT id FROM ${ams.db.organizations} WHERE noid_id LIKE(#[flowVars.cp_ldap])) )]]></db:parameterized-query>
-        </db:select>
-    </flow>
-    
-        <flow name="db:/report/global/ams/status">
-        <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
-	flowVars.sources = new java.util.ArrayList();
-}
-
-if (!flowVars.sources.contains("AMS")) {
-	flowVars.sources.add("AMS");
-}]]></expression-component>
-        <db:select config-ref="AMS_MySQL" doc:name="Database">
-            <db:parameterized-query><![CDATA[select sum(case when e.event_outcome = 1 then 1 else 0 end) paper_digitised_ok, sum(case when e.event_outcome = 0 then 1 else 0 end) paper_digitised_nok
-FROM ${ams.db.paper_event} e
-WHERE event_lookup_id = 5
-AND carrier_id IN ( select id from ${ams.db.carrier} where organization_id IN (SELECT id FROM ${ams.db.organizations} WHERE noid_id LIKE(#[flowVars.cp_ldap])) )]]></db:parameterized-query>
-        </db:select>
+        <choice doc:name="When cp_mam == '%'">
+            <when expression="#[flowVars.cp_mam == '%']">
+                <db:select config-ref="Reporting" doc:name="Database">
+                    <db:parameterized-query><![CDATA[select sum(audio_registered_and_not_digitised) audio_registered_and_not_digitised, 
+sum(video_registered_and_not_digitised) video_registered_and_not_digitised,
+sum(film_registered_and_not_digitised) film_registered_and_not_digitised, 
+sum(audio_digitised_ok) audio_digitised_ok, 
+sum(audio_digitised_nok) audio_digitised_nok, 
+sum(video_digitised_ok) video_digitised_ok,
+sum(video_digitised_nok) video_digitised_nok,
+sum(film_digitised_ok) film_digitised_ok, 
+sum(film_digitised_nok) film_digitised_nok, 
+sum(paper_digitised_ok) paper_digitised_ok,
+sum(paper_digitised_nok) paper_digitised_nok
+from report_ams_digitised_global;]]></db:parameterized-query>
+                </db:select>
+            </when>
+            <otherwise>
+                <db:select config-ref="Reporting" doc:name="Database">
+                    <db:parameterized-query><![CDATA[select *
+from report_ams_digitised_global
+WHERE noid_id LIKE #[flowVars.cp_ldap];]]></db:parameterized-query>
+                </db:select>
+            </otherwise>
+        </choice>
     </flow>
     
     <flow name="db:/report/mam">
