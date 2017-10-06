@@ -173,9 +173,9 @@ if (!flowVars.sources.contains("MAM")) {
         <choice doc:name="When cp_mam == '%'">
             <when expression="#[flowVars.cp_mam == '%']">
                 <db:select config-ref="Reporting" doc:name="Database">
-                    <db:parameterized-query><![CDATA[select mime_type, sum(archived_amount_ok) archived_amount_ok, sum(archived_amount_nok) archived_amount_nok, sum(archived_bytes_ok) archived_bytes_ok, sum(archived_bytes_nok) archived_bytes_nok
+                    <db:parameterized-query><![CDATA[select type, sum(archived_amount_ok) archived_amount_ok, sum(archived_amount_nok) archived_amount_nok, sum(archived_bytes_ok) archived_bytes_ok, sum(archived_bytes_nok) archived_bytes_nok
 from report_mam_global
-group by mime_type]]></db:parameterized-query>
+group by type]]></db:parameterized-query>
                 </db:select>
             </when>
             <otherwise>
@@ -231,6 +231,36 @@ order by x asc]]></db:parameterized-query>
             <db:dynamic-query><![CDATA[REFRESH MATERIALIZED VIEW CONCURRENTLY report_mam_global;]]></db:dynamic-query>
         </db:execute-ddl>
         <logger message="End reload mam global stats" level="INFO" doc:name="End reload mam global stats"/>
+        <logger message="Start reload report_ams_registered_all_time" level="INFO" doc:name="Start reload report_ams_registered_all_time"/>
+        <db:execute-ddl config-ref="Reporting" doc:name="Refresh materialized views for AMS report_ams_registered_all_time">
+            <db:dynamic-query><![CDATA[REFRESH MATERIALIZED VIEW CONCURRENTLY report_ams_registered_all_time;]]></db:dynamic-query>
+        </db:execute-ddl>
+        <logger message="End reload report_ams_registered_all_time" level="INFO" doc:name="End reload report_ams_registered_all_time"/>
+        <logger message="Start reload report_ams_registered_last_year" level="INFO" doc:name="Start reload report_ams_registered_last_year"/>
+        <db:execute-ddl config-ref="Reporting" doc:name="Refresh materialized views for report_ams_registered_last_year">
+            <db:dynamic-query><![CDATA[REFRESH MATERIALIZED VIEW CONCURRENTLY report_ams_registered_last_year;]]></db:dynamic-query>
+        </db:execute-ddl>
+        <logger message="End reload report_ams_registered_last_year" level="INFO" doc:name="End reload report_ams_registered_last_year"/>
+        <logger message="Start reload report_ams_registered_last_month" level="INFO" doc:name="Start reload report_ams_registered_last_month"/>
+        <db:execute-ddl config-ref="Reporting" doc:name="Refresh materialized views for report_ams_registered_last_month">
+            <db:dynamic-query><![CDATA[REFRESH MATERIALIZED VIEW CONCURRENTLY report_ams_registered_last_month;]]></db:dynamic-query>
+        </db:execute-ddl>
+        <logger message="End reload report_ams_registered_last_month" level="INFO" doc:name="End reload report_ams_registered_last_month"/>
+        <logger message="Start reload report_ams_registered_last_week" level="INFO" doc:name="Start reload report_ams_registered_last_week"/>
+        <db:execute-ddl config-ref="Reporting" doc:name="Refresh materialized views for report_ams_registered_last_week">
+            <db:dynamic-query><![CDATA[REFRESH MATERIALIZED VIEW CONCURRENTLY report_ams_registered_last_week;]]></db:dynamic-query>
+        </db:execute-ddl>
+        <logger message="End reload report_ams_registered_last_week" level="INFO" doc:name="End reload report_ams_registered_last_week"/>
+        <logger message="Start reload report_ams_registered_global" level="INFO" doc:name="Start reload report_ams_registered_global"/>
+        <db:execute-ddl config-ref="Reporting" doc:name="Refresh materialized views for report_ams_registered_global">
+            <db:dynamic-query><![CDATA[REFRESH MATERIALIZED VIEW CONCURRENTLY report_ams_registered_global;]]></db:dynamic-query>
+        </db:execute-ddl>
+        <logger message="End reload report_ams_registered_global" level="INFO" doc:name="End reload report_ams_registered_global"/>
+        <logger message="Start reload report_ams_digitised_global" level="INFO" doc:name="Start reload report_ams_digitised_global"/>
+        <db:execute-ddl config-ref="Reporting" doc:name="Refresh materialized views for report_ams_digitised_global">
+            <db:dynamic-query><![CDATA[REFRESH MATERIALIZED VIEW CONCURRENTLY report_ams_digitised_global;]]></db:dynamic-query>
+        </db:execute-ddl>
+        <logger message="End reload report_ams_digitised_global" level="INFO" doc:name="End reload report_ams_digitised_global"/>
     </flow>
 
 </mule>

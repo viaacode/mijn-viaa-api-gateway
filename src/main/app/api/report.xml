@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+<mule xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:db="http://www.mulesoft.org/schema/mule/db"
 	xmlns:http="http://www.mulesoft.org/schema/mule/http"
 	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
 	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
@@ -233,6 +233,45 @@ payload[2][0].total_digitised_ok += 47046;]]></expression-component>
                 </choice>
         </ee:cache>
         </enricher>
+        <dw:transform-message doc:name="Set mam_per_type" metadata:id="61485828-332a-454d-b2d7-e517643c5df3">
+            <dw:input-payload doc:sample="sample_data/MyPojo.dwl"/>
+            <dw:set-variable variableName="mam_per_type"><![CDATA[%dw 1.0
+%output application/java
+---
+{(payload[1] map using (type = $.type) (
+    '$type': (
+        $ mapObject { ('$$':$) }
+    )
+))}]]></dw:set-variable>
+        </dw:transform-message>
+        <expression-component doc:name="Add bytes to film"><![CDATA[if (flowVars.mam_per_type.film != null) {
+if (flowVars.mam_per_type.film_dpx != null) {
+	flowVars.mam_per_type.film.archived_bytes_ok += flowVars.mam_per_type.film_dpx.archived_bytes_ok;
+	flowVars.mam_per_type.film.archived_bytes_nok +=  flowVars.mam_per_type.film_dpx.archived_bytes_nok;
+}
+
+if (flowVars.mam_per_type.film_wav != null) {
+	flowVars.mam_per_type.film.archived_bytes_ok += flowVars.mam_per_type.film_wav.archived_bytes_ok;
+	flowVars.mam_per_type.film.archived_bytes_nok +=  flowVars.mam_per_type.film_wav.archived_bytes_nok;
+}
+
+if (flowVars.mam_per_type.film_mezanine != null) {
+	flowVars.mam_per_type.film.archived_bytes_ok += flowVars.mam_per_type.film_mezanine.archived_bytes_ok;
+	flowVars.mam_per_type.film.archived_bytes_nok +=  flowVars.mam_per_type.film_mezanine.archived_bytes_nok;
+}
+}]]></expression-component>
+        <expression-component doc:name="Add bytes to newspaper"><![CDATA[if (flowVars.mam_per_type.newspaper != null) {
+	if (flowVars.mam_per_type.newspaperpage != null) {
+		flowVars.mam_per_type.newspaper.archived_bytes_ok += flowVars.mam_per_type.newspaperpage.archived_bytes_ok;
+		flowVars.mam_per_type.newspaper.archived_bytes_nok +=  flowVars.mam_per_type.newspaperpage.archived_bytes_nok;
+	}
+}]]></expression-component>
+        <expression-component doc:name="Remove film_dpx, film_wav, film_mezanine, newspaperpage, metadataonly, set"><![CDATA[flowVars.mam_per_type.remove('film_dpx');
+flowVars.mam_per_type.remove('film_wav');
+flowVars.mam_per_type.remove('film_mezanine');
+flowVars.mam_per_type.remove('newspaperpage');
+flowVars.mam_per_type.remove('metadataonly');
+flowVars.mam_per_type.remove('set');]]></expression-component>
                 <expression-component doc:name="Add AMS and MAM as source"><![CDATA[if (flowVars.sources == null) {
 	flowVars.sources = new java.util.ArrayList();
 }
@@ -244,7 +283,9 @@ if (!flowVars.sources.contains("AMS")) {
 if (!flowVars.sources.contains("MAM")) {
 	flowVars.sources.add("MAM");
 }]]></expression-component>
-        <dw:transform-message doc:name="Build nice JSON object">
+        <dw:transform-message doc:name="Build nice JSON object" metadata:id="58215c86-7375-4c66-991a-a2c0c303fc28">
+            <dw:input-payload doc:sample="sample_data/map.dwl"/>
+            <dw:input-variable doc:sample="sample_data/string.dwl" mimeType="application/java" variableName="mam_per_type"/>
             <dw:set-payload><![CDATA[%dw 1.0
 %function zero(n) n when n!=null otherwise 0
 %output application/json
@@ -258,9 +299,9 @@ lookup("create_response",
 		"paper": zero(payload[0][0].paper_registered),
 		"total": zero(payload[0][0].total_registered)
 	},
-	"archived": { (payload[1] map (
+	"archived": { (flowVars.mam_per_type map (
 			{
-				($.mime_type): {
+				($.type): {
 					"amount": {
 						"ok": zero($.archived_amount_ok),
 						"nok": zero($.archived_amount_nok)
@@ -270,7 +311,7 @@ lookup("create_response",
 						"nok": zero($.archived_bytes_nok)
 					}
 				}
-			} when $.mime_type != null 
+			} when $.type != null 
 			otherwise {
 				"unknown": {
 					"amount": {
