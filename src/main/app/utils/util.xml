@@ -76,6 +76,7 @@ if (!flowVars.sources.contains("mediamosa")) {
         </enricher>
         <http:request config-ref="HTTP_MM_Request" path="#[flowVars.Link]" method="GET" doc:name="HTTP">
             <http:request-builder>
+                <http:query-params expression="#[flowVars.queryParams == null ? dw('{}') : flowVars.queryParams]"/>
                 <http:header headerName="cookie" value="#[flowVars.cookie]"/>
             </http:request-builder>
         </http:request>
