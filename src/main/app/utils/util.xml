@@ -293,7 +293,7 @@ if (!flowVars.sources.contains("MAM")) {
     </flow>
     
     <flow name="create_response">
-        <logger message="Creating response with #[payload]" level="INFO" doc:name="Logger"/>
+        <logger message="Creating response" level="INFO" doc:name="Logger"/>
         <dw:transform-message doc:name="Transform Message">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
