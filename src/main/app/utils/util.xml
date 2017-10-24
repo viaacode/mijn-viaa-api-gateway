@@ -376,8 +376,8 @@ payload.response.items.item.dbus[11 .. 42]]]></dw:set-variable>
                 <http:uri-param paramName="or_id" value="#[flowVars.cp_ldap]"/>
             </http:request-builder>
         </http:request>
-        <json:json-to-object-transformer doc:name="JSON to Object" returnClass="java.util.HashMap"/>
-        <set-variable variableName="cp_mam" value="#[payload.data.cp_name_mam]" doc:name="Set cp_mam"/>
+        <json:json-to-object-transformer doc:name="JSON to Object"/>
+        <set-variable variableName="cp_mam" value="#[payload.get('data').get('cp_name_mam').asText()]" doc:name="Set cp_mam with cp"/>
         <choice doc:name="Is cp_mam VIAA?">
             <when expression="#[flowVars.cp_mam != 'VIAA']">
                 <logger level="INFO" doc:name="Change nothing"/>
