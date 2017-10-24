@@ -11,7 +11,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 http://www.mulesoft.org/schema/mule/quartz http://www.mulesoft.org/schema/mule/quartz/current/mule-quartz.xsd">
     <quartz:connector name="MatViewQuartz" validateConnections="true" doc:name="Quartz"/>
 
-<flow name="db:/report/ams">
+<flow name="db:/report/ams-registered-all-time">
         <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
 	flowVars.sources = new java.util.ArrayList();
 }
@@ -19,15 +19,14 @@ http://www.mulesoft.org/schema/mule/quartz http://www.mulesoft.org/schema/mule/q
 if (!flowVars.sources.contains("AMS")) {
 	flowVars.sources.add("AMS");
 }]]></expression-component>
-        <db:select config-ref="AMS_MySQL" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT EXTRACT(year_month from created_on), UNIX_TIMESTAMP(MIN(created_on)) x, COUNT(1) total_registered, SUM(CASE WHEN carrier_type_id = 1 THEN 1 ELSE 0 END) audio_registered, SUM(CASE WHEN carrier_type_id = 2 THEN 1 ELSE 0 END) video_registered, SUM(CASE WHEN carrier_type_id = 3 THEN 1 ELSE 0 END) paper_registered, SUM(CASE WHEN carrier_type_id = 4 THEN 1 ELSE 0 END) film_registered
-FROM ${ams.db.carrier}
-WHERE organization_id IN (SELECT id FROM ${ams.db.organizations} WHERE noid_id LIKE #[flowVars.cp_ldap])
-GROUP BY EXTRACT(year_month from created_on)
-ORDER BY MIN(created_on) ASC;]]></db:parameterized-query>
+        <db:select config-ref="Reporting" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT *
+FROM report_ams_registered_all_time
+WHERE noid_id LIKE #[flowVars.cp_ldap]
+ORDER BY x ASC;]]></db:parameterized-query>
         </db:select>
     </flow>
-    <flow name="db:/report/ams-created">
+    <flow name="db:/report/ams-registered-last-year">
         <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
 	flowVars.sources = new java.util.ArrayList();
 }
@@ -35,13 +34,43 @@ ORDER BY MIN(created_on) ASC;]]></db:parameterized-query>
 if (!flowVars.sources.contains("AMS")) {
 	flowVars.sources.add("AMS");
 }]]></expression-component>
-        <db:select config-ref="AMS_MySQL" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT EXTRACT(year_month from created_on), UNIX_TIMESTAMP(MIN(created_on)) x, COUNT(1) total_registered, SUM(CASE WHEN carrier_type_id = 1 THEN 1 ELSE 0 END) audio_registered, SUM(CASE WHEN carrier_type_id = 2 THEN 1 ELSE 0 END) video_registered, SUM(CASE WHEN carrier_type_id = 3 THEN 1 ELSE 0 END) paper_registered, SUM(CASE WHEN carrier_type_id = 4 THEN 1 ELSE 0 END) film_registered
-FROM ${ams.db.carrier}
-WHERE organization_id IN (SELECT id FROM ${ams.db.organizations} WHERE noid_id LIKE(#[flowVars.cp_ldap]))
-AND created_on >= #[flowVars.start]
-GROUP BY EXTRACT(year_month from created_on)
-ORDER BY MIN(created_on) ASC;]]></db:parameterized-query>
+        <db:select config-ref="Reporting" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT *
+FROM report_ams_registered_last_year
+WHERE noid_id LIKE #[flowVars.cp_ldap]
+ORDER BY x ASC;]]></db:parameterized-query>
+        </db:select>
+    </flow>
+    
+    <flow name="db:/report/ams-registered-last-month">
+        <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("AMS")) {
+	flowVars.sources.add("AMS");
+}]]></expression-component>
+        <db:select config-ref="Reporting" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT *
+FROM report_ams_registered_last_month
+WHERE noid_id LIKE #[flowVars.cp_ldap]
+ORDER BY x ASC;]]></db:parameterized-query>
+        </db:select>
+    </flow>
+    
+    <flow name="db:/report/ams-registered-last-week">
+        <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("AMS")) {
+	flowVars.sources.add("AMS");
+}]]></expression-component>
+        <db:select config-ref="Reporting" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT *
+FROM report_ams_registered_last_week
+WHERE noid_id LIKE #[flowVars.cp_ldap]
+ORDER BY x ASC;]]></db:parameterized-query>
         </db:select>
     </flow>
     
@@ -53,11 +82,21 @@ ORDER BY MIN(created_on) ASC;]]></db:parameterized-query>
 if (!flowVars.sources.contains("AMS")) {
 	flowVars.sources.add("AMS");
 }]]></expression-component>
-        <db:select config-ref="AMS_MySQL" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT count(1) total_registered, sum(case when carrier_type_id = 1 then 1 else 0 end) audio_registered, sum(case when carrier_type_id = 2 then 1 else 0 end) video_registered, sum(case when carrier_type_id = 3 then 1 else 0 end) paper_registered, sum(case when carrier_type_id = 4 then 1 else 0 end) film_registered
-FROM ${ams.db.carrier}
-WHERE organization_id IN (SELECT id FROM ${ams.db.organizations} WHERE noid_id LIKE(#[flowVars.cp_ldap]));]]></db:parameterized-query>
-        </db:select>
+        <choice doc:name="When cp_mam == '%'">
+            <when expression="#[flowVars.cp_mam == '%']">
+                <db:select config-ref="Reporting" doc:name="Database">
+                    <db:parameterized-query><![CDATA[select sum(total_registered) total_registered, sum(audio_registered) audio_registered, sum(video_registered) video_registered, sum(paper_registered) paper_registered, sum(film_registered) film_registered
+from report_ams_registered_global;]]></db:parameterized-query>
+                </db:select>
+            </when>
+            <otherwise>
+                <db:select config-ref="Reporting" doc:name="Database">
+                    <db:parameterized-query><![CDATA[select *
+from report_ams_registered_global
+WHERE noid_id LIKE #[flowVars.cp_ldap];]]></db:parameterized-query>
+                </db:select>
+            </otherwise>
+        </choice>
     </flow>
     
         <flow name="db:/report/global/ams/digitized">
@@ -68,55 +107,31 @@ WHERE organization_id IN (SELECT id FROM ${ams.db.organizations} WHERE noid_id L
 if (!flowVars.sources.contains("AMS")) {
 	flowVars.sources.add("AMS");
 }]]></expression-component>
-        <db:select config-ref="AMS_MySQL" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 1 then 1 else 0 end) audio_registered_and_not_digitised, sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 2 then 1 else 0 end) video_registered_and_not_digitised, sum(case when (c.is_digitized = 0 and e.event_outcome is null) and c.carrier_type_id = 4 then 1 else 0 end) film_registered_and_not_digitised, sum(case when e.event_outcome = 1 and c.carrier_type_id = 1 then 1 else 0 end) audio_digitised_ok, sum(case when e.event_outcome = 0 and c.carrier_type_id = 1 then 1 else 0 end) audio_digitised_nok, sum(case when e.event_outcome = 1 and c.carrier_type_id = 2 then 1 else 0 end) video_digitised_ok, sum(case when e.event_outcome = 0 and c.carrier_type_id = 2 then 1 else 0 end) video_digitised_nok, sum(case when e.event_outcome = 1 and c.carrier_type_id = 4 then 1 else 0 end) film_digitised_ok, sum(case when e.event_outcome = 0 and c.carrier_type_id = 4 then 1 else 0 end) film_digitised_nok
-FROM ams.carrier c
-LEFT JOIN ams.events e ON c.id = e.carrier_id and e.id = (
-    SELECT max(id)
-    FROM ams.events x
-    WHERE x.carrier_id = c.id
-    AND event_lookup_id = 5)
-WHERE carrier_id IN (
-    SELECT id
-    FROM ${ams.db.carrier}
-    WHERE organization_id IN (SELECT id FROM ${ams.db.organizations} WHERE noid_id LIKE(#[flowVars.cp_ldap]))
-);]]></db:parameterized-query>
-        </db:select>
-    </flow>
-    
-        <flow name="db:/report/global/ams/digitized_paper">
-        <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
-	flowVars.sources = new java.util.ArrayList();
-}
-
-if (!flowVars.sources.contains("AMS")) {
-	flowVars.sources.add("AMS");
-}]]></expression-component>
-        <db:select config-ref="AMS_MySQL" doc:name="Database">
-            <db:parameterized-query><![CDATA[SELECT sum(case when e.event_outcome = 1 then 1 else 0 end) paper_digitised_ok, sum(case when e.event_outcome = 0 then 1 else 0 end) paper_digitised_nok
-FROM ${ams.db.paper_event} e
-WHERE event_lookup_id = 5
-AND carrier_id IN (
-    select id
-    from ${ams.db.carrier}
-    where organization_id IN (SELECT id FROM ${ams.db.organizations} WHERE noid_id LIKE(#[flowVars.cp_ldap])) )]]></db:parameterized-query>
-        </db:select>
-    </flow>
-    
-        <flow name="db:/report/global/ams/status">
-        <expression-component doc:name="Add AMS as source"><![CDATA[if (flowVars.sources == null) {
-	flowVars.sources = new java.util.ArrayList();
-}
-
-if (!flowVars.sources.contains("AMS")) {
-	flowVars.sources.add("AMS");
-}]]></expression-component>
-        <db:select config-ref="AMS_MySQL" doc:name="Database">
-            <db:parameterized-query><![CDATA[select sum(case when e.event_outcome = 1 then 1 else 0 end) paper_digitised_ok, sum(case when e.event_outcome = 0 then 1 else 0 end) paper_digitised_nok
-FROM ${ams.db.paper_event} e
-WHERE event_lookup_id = 5
-AND carrier_id IN ( select id from ${ams.db.carrier} where organization_id IN (SELECT id FROM ${ams.db.organizations} WHERE noid_id LIKE(#[flowVars.cp_ldap])) )]]></db:parameterized-query>
-        </db:select>
+        <choice doc:name="When cp_mam == '%'">
+            <when expression="#[flowVars.cp_mam == '%']">
+                <db:select config-ref="Reporting" doc:name="Database">
+                    <db:parameterized-query><![CDATA[select sum(audio_registered_and_not_digitised) audio_registered_and_not_digitised, 
+sum(video_registered_and_not_digitised) video_registered_and_not_digitised,
+sum(film_registered_and_not_digitised) film_registered_and_not_digitised, 
+sum(audio_digitised_ok) audio_digitised_ok, 
+sum(audio_digitised_nok) audio_digitised_nok, 
+sum(video_digitised_ok) video_digitised_ok,
+sum(video_digitised_nok) video_digitised_nok,
+sum(film_digitised_ok) film_digitised_ok, 
+sum(film_digitised_nok) film_digitised_nok, 
+sum(paper_digitised_ok) paper_digitised_ok,
+sum(paper_digitised_nok) paper_digitised_nok
+from report_ams_digitised_global;]]></db:parameterized-query>
+                </db:select>
+            </when>
+            <otherwise>
+                <db:select config-ref="Reporting" doc:name="Database">
+                    <db:parameterized-query><![CDATA[select *
+from report_ams_digitised_global
+WHERE noid_id LIKE #[flowVars.cp_ldap];]]></db:parameterized-query>
+                </db:select>
+            </otherwise>
+        </choice>
     </flow>
     
     <flow name="db:/report/mam">
@@ -158,9 +173,9 @@ if (!flowVars.sources.contains("MAM")) {
         <choice doc:name="When cp_mam == '%'">
             <when expression="#[flowVars.cp_mam == '%']">
                 <db:select config-ref="Reporting" doc:name="Database">
-                    <db:parameterized-query><![CDATA[select mime_type, sum(archived_amount_ok) archived_amount_ok, sum(archived_amount_nok) archived_amount_nok, sum(archived_bytes_ok) archived_bytes_ok, sum(archived_bytes_nok) archived_bytes_nok
+                    <db:parameterized-query><![CDATA[select type, sum(archived_amount_ok) archived_amount_ok, sum(archived_amount_nok) archived_amount_nok, sum(archived_bytes_ok) archived_bytes_ok, sum(archived_bytes_nok) archived_bytes_nok
 from report_mam_global
-group by mime_type]]></db:parameterized-query>
+group by type]]></db:parameterized-query>
                 </db:select>
             </when>
             <otherwise>
@@ -216,6 +231,36 @@ order by x asc]]></db:parameterized-query>
             <db:dynamic-query><![CDATA[REFRESH MATERIALIZED VIEW CONCURRENTLY report_mam_global;]]></db:dynamic-query>
         </db:execute-ddl>
         <logger message="End reload mam global stats" level="INFO" doc:name="End reload mam global stats"/>
+        <logger message="Start reload report_ams_registered_all_time" level="INFO" doc:name="Start reload report_ams_registered_all_time"/>
+        <db:execute-ddl config-ref="Reporting" doc:name="Refresh materialized views for AMS report_ams_registered_all_time">
+            <db:dynamic-query><![CDATA[REFRESH MATERIALIZED VIEW CONCURRENTLY report_ams_registered_all_time;]]></db:dynamic-query>
+        </db:execute-ddl>
+        <logger message="End reload report_ams_registered_all_time" level="INFO" doc:name="End reload report_ams_registered_all_time"/>
+        <logger message="Start reload report_ams_registered_last_year" level="INFO" doc:name="Start reload report_ams_registered_last_year"/>
+        <db:execute-ddl config-ref="Reporting" doc:name="Refresh materialized views for report_ams_registered_last_year">
+            <db:dynamic-query><![CDATA[REFRESH MATERIALIZED VIEW CONCURRENTLY report_ams_registered_last_year;]]></db:dynamic-query>
+        </db:execute-ddl>
+        <logger message="End reload report_ams_registered_last_year" level="INFO" doc:name="End reload report_ams_registered_last_year"/>
+        <logger message="Start reload report_ams_registered_last_month" level="INFO" doc:name="Start reload report_ams_registered_last_month"/>
+        <db:execute-ddl config-ref="Reporting" doc:name="Refresh materialized views for report_ams_registered_last_month">
+            <db:dynamic-query><![CDATA[REFRESH MATERIALIZED VIEW CONCURRENTLY report_ams_registered_last_month;]]></db:dynamic-query>
+        </db:execute-ddl>
+        <logger message="End reload report_ams_registered_last_month" level="INFO" doc:name="End reload report_ams_registered_last_month"/>
+        <logger message="Start reload report_ams_registered_last_week" level="INFO" doc:name="Start reload report_ams_registered_last_week"/>
+        <db:execute-ddl config-ref="Reporting" doc:name="Refresh materialized views for report_ams_registered_last_week">
+            <db:dynamic-query><![CDATA[REFRESH MATERIALIZED VIEW CONCURRENTLY report_ams_registered_last_week;]]></db:dynamic-query>
+        </db:execute-ddl>
+        <logger message="End reload report_ams_registered_last_week" level="INFO" doc:name="End reload report_ams_registered_last_week"/>
+        <logger message="Start reload report_ams_registered_global" level="INFO" doc:name="Start reload report_ams_registered_global"/>
+        <db:execute-ddl config-ref="Reporting" doc:name="Refresh materialized views for report_ams_registered_global">
+            <db:dynamic-query><![CDATA[REFRESH MATERIALIZED VIEW CONCURRENTLY report_ams_registered_global;]]></db:dynamic-query>
+        </db:execute-ddl>
+        <logger message="End reload report_ams_registered_global" level="INFO" doc:name="End reload report_ams_registered_global"/>
+        <logger message="Start reload report_ams_digitised_global" level="INFO" doc:name="Start reload report_ams_digitised_global"/>
+        <db:execute-ddl config-ref="Reporting" doc:name="Refresh materialized views for report_ams_digitised_global">
+            <db:dynamic-query><![CDATA[REFRESH MATERIALIZED VIEW CONCURRENTLY report_ams_digitised_global;]]></db:dynamic-query>
+        </db:execute-ddl>
+        <logger message="End reload report_ams_digitised_global" level="INFO" doc:name="End reload report_ams_digitised_global"/>
     </flow>
 
 </mule>

@@ -43,6 +43,7 @@ JOIN users_roles ur ON ur.uid = u.uid
 JOIN role r ON r.rid = ur.rid
 WHERE FROM_UNIXTIME(u.access)>= #[flowVars.from]
 AND FROM_UNIXTIME(u.access)<= #[flowVars.until]
+AND u.status = 1
 GROUP BY ur.rid
 ORDER BY ur.rid;]]></db:parameterized-query>
         </db:select>
