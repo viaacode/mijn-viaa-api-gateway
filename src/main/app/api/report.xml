@@ -29,7 +29,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
             </otherwise>
         </choice>
         <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'all-time':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
-        <ee:cache cachingStrategy-ref="Caching_AMS" doc:name="Cache">
+<!--         <ee:cache cachingStrategy-ref="Caching_AMS" doc:name="Cache"> -->
             <choice doc:name="Last-day, last-week, last-month, last-year or all-time?">
             	<when expression="#[flowVars.granularity.equals('all-time')]">
                     <logger message="all-time = no start and end" level="INFO" doc:name="all-time = no start and end"/>
@@ -52,7 +52,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
                     <logger message="Bad granularity, use al-time, last-year, last-month, last-week" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
                 </otherwise>
             </choice>
-        </ee:cache>
+<!--         </ee:cache> -->
         <dw:transform-message doc:name="Transform Message">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
@@ -112,7 +112,7 @@ lookup("create_response",
                 <set-variable variableName="cp_mam" value="#['%']" doc:name="Set cp_mam (default %)"/>
             </otherwise>
         </choice>
-        <ee:cache cachingStrategy-ref="Caching_MAM" doc:name="Cache">
+<!--         <ee:cache cachingStrategy-ref="Caching_MAM" doc:name="Cache"> -->
             <choice doc:name="Last-day, last-week, last-month, last-year or all-time?">
 	            <when expression="#[flowVars.granularity.equals('all-time')]">
 	                <logger message="all-time = no start" level="INFO" doc:name="all-time = no start and end"/>
@@ -142,7 +142,7 @@ lookup("create_response",
                     <logger message="Bad granularity, use live-data, 2-days, 1-month or 1-year" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
                 </otherwise>
             </choice>
-        </ee:cache>
+<!--         </ee:cache> -->
         <dw:transform-message doc:name="Transform Message">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
@@ -185,8 +185,8 @@ lookup("create_response",
                 <set-variable variableName="cp_ldap" value="#[&quot;%&quot;]" doc:name="Set cp_ldap to %"/>
             </otherwise>
         </choice>
-        <enricher doc:name="Message Enricher" target="#[payload]">
-        	<ee:cache cachingStrategy-ref="Caching_global" doc:name="Cache">
+<!--         <enricher doc:name="Message Enricher" target="#[payload]"> -->
+<!--         	<ee:cache cachingStrategy-ref="Caching_global" doc:name="Cache"> -->
             <scatter-gather doc:name="Scatter-Gather">
                 <threading-profile poolExhaustedAction="RUN"/>
                 <processor-chain>
@@ -231,8 +231,8 @@ payload[2][0].video_digitised_ok += 47046;
 payload[2][0].total_digitised_ok += 47046;]]></expression-component>
                     </otherwise>
                 </choice>
-        </ee:cache>
-        </enricher>
+<!--         </ee:cache> -->
+<!--         </enricher> -->
         <dw:transform-message doc:name="Set mam_per_type" metadata:id="61485828-332a-454d-b2d7-e517643c5df3">
             <dw:input-payload doc:sample="sample_data/MyPojo.dwl"/>
             <dw:set-variable variableName="mam_per_type"><![CDATA[%dw 1.0
