@@ -179,7 +179,7 @@ group by type]]></db:parameterized-query>
                 </db:select>
             </when>
             <otherwise>
-                <db:select config-ref="Mediahaven_monitoring" doc:name="Database">
+                <db:select config-ref="Reporting" doc:name="Database">
                     <db:parameterized-query><![CDATA[select *
 from report_mam_global
 where organisation = #[flowVars.cp_mam]]]></db:parameterized-query>
@@ -217,8 +217,8 @@ order by x asc]]></db:parameterized-query>
             </otherwise>
         </choice>
     </flow>
-    <flow name="reportFlow">
-        <quartz:inbound-endpoint jobName="matviews" repeatInterval="3600000" startDelay="100" connector-ref="MatViewQuartz" responseTimeout="10000" doc:name="Reload materialized views">
+    <flow name="reportFlow" processingStrategy="synchronous">
+        <quartz:inbound-endpoint jobName="matviews" repeatInterval="86400000" startDelay="100" connector-ref="MatViewQuartz" responseTimeout="10000" doc:name="Reload materialized views">
             <quartz:event-generator-job/>
         </quartz:inbound-endpoint>
         <logger message="Start reload materialized view mam" level="INFO" doc:name="Start reload materialized view mam"/>
