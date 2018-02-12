@@ -167,6 +167,12 @@ traits:
         is: [responses-all: {
           example200: '"data":{"Docent":16787,"Student":8123,"Testgebruiker onderwijs":78,"Testgebruiker viaa":57,"administrator":25}',
           description: "count how many users were active in daterange"}, dates]
+    /engaged:
+      get:
+        description: "count how many users were active in daterange"
+        is: [responses-all: {
+          example200: '"data":{"Docent":16787,"Student":8123,"Testgebruiker onderwijs":78,"Testgebruiker viaa":57,"administrator":25}',
+          description: "count how many users were active in daterange"}, dates]
     /registered:
       get:
         description: "count how many users registered in daterange"
