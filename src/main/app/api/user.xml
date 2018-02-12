@@ -54,7 +54,7 @@ lookup("create_response", payload)]]></dw:set-payload>
         <dw:transform-message doc:name="output">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
-%var info = flowVars['info'] splitBy "|"
+//%var info = flowVars['info'] splitBy "|"
 ---
 lookup("create_response", (payload groupBy $.col_title)
 )]]></dw:set-payload>

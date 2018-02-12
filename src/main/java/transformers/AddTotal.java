@@ -18,7 +18,7 @@ public class AddTotal implements Callable {
 
 		// Build entry for totals
 		CaseInsensitiveHashMap c = new CaseInsensitiveHashMap();
-		c.put("mime_type", "total");
+		c.put("type", "total");
 		c.put("archived_amount_ok", eventContext.getMessage().getInvocationProperty("total_archived_amount_ok"));
 		c.put("archived_bytes_ok", eventContext.getMessage().getInvocationProperty("total_archived_bytes_ok"));
 		c.put("archived_amount_nok", eventContext.getMessage().getInvocationProperty("total_archived_amount_nok"));

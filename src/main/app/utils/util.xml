@@ -76,6 +76,7 @@ if (!flowVars.sources.contains("mediamosa")) {
         </enricher>
         <http:request config-ref="HTTP_MM_Request" path="#[flowVars.Link]" method="GET" doc:name="HTTP">
             <http:request-builder>
+                <http:query-params expression="#[flowVars.queryParams == null ? dw('{}') : flowVars.queryParams]"/>
                 <http:header headerName="cookie" value="#[flowVars.cookie]"/>
             </http:request-builder>
         </http:request>
@@ -258,42 +259,8 @@ if (!flowVars.sources.contains("AMS")) {
         </db:select>
     </flow>
     
-    <flow name="ref:mh-call">
-        <expression-component doc:name="Add MAM as source"><![CDATA[if (flowVars.sources == null) {
-	flowVars.sources = new java.util.ArrayList();
-}
-
-if (!flowVars.sources.contains("MAM")) {
-	flowVars.sources.add("MAM");
-}]]></expression-component>
-        <db:select config-ref="Mediahaven_monitoring" doc:name="Database">
-            <db:dynamic-query><![CDATA[#[payload]]]></db:dynamic-query>
-        </db:select>
-        <choice doc:name="Choice">
-            <when expression="#[payload.size() &gt; 0]">
-                <logger message="Got #[payload.size()] results from MH" level="INFO" doc:name="Logger"/>
-            </when>
-            <otherwise>
-                <flow-ref name="throw404" doc:name="throw404"/>
-            </otherwise>
-        </choice>
-    </flow>
-    
-    <flow name="ref:mh-collection-call">
-        <expression-component doc:name="Add MAM as source"><![CDATA[if (flowVars.sources == null) {
-	flowVars.sources = new java.util.ArrayList();
-}
-
-if (!flowVars.sources.contains("MAM")) {
-	flowVars.sources.add("MAM");
-}]]></expression-component>
-        <db:select config-ref="Mediahaven_monitoring" doc:name="Database">
-            <db:dynamic-query><![CDATA[#[payload]]]></db:dynamic-query>
-        </db:select>
-    </flow>
-    
     <flow name="create_response">
-        <logger message="Creating response with #[payload]" level="INFO" doc:name="Logger"/>
+        <logger message="Creating response" level="INFO" doc:name="Logger"/>
         <dw:transform-message doc:name="Transform Message">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
@@ -375,8 +342,8 @@ payload.response.items.item.dbus[11 .. 42]]]></dw:set-variable>
                 <http:uri-param paramName="or_id" value="#[flowVars.cp_ldap]"/>
             </http:request-builder>
         </http:request>
-        <json:json-to-object-transformer doc:name="JSON to Object" returnClass="java.util.HashMap"/>
-        <set-variable variableName="cp_mam" value="#[payload.data.cp_name_mam]" doc:name="Set cp_mam"/>
+        <json:json-to-object-transformer doc:name="JSON to Object"/>
+        <set-variable variableName="cp_mam" value="#[payload.get('data').get('cp_name_mam').asText()]" doc:name="Set cp_mam with cp"/>
         <choice doc:name="Is cp_mam VIAA?">
             <when expression="#[flowVars.cp_mam != 'VIAA']">
                 <logger level="INFO" doc:name="Change nothing"/>

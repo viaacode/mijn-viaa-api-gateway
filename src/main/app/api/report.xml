@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+<mule xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:db="http://www.mulesoft.org/schema/mule/db"
 	xmlns:http="http://www.mulesoft.org/schema/mule/http"
 	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
 	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
@@ -25,40 +25,34 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
             </when>
             <otherwise>
                 <set-variable variableName="query_ams_organization_ids" value="#['SELECT id FROM ']${ams.db.organizations}" doc:name="Set query_ams_organization_ids to every organization"/>
+                <set-variable variableName="cp_ldap" value="#['%']" doc:name="Set cp_ldap to %"/>
             </otherwise>
         </choice>
-        <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'last-day':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
-        <ee:cache cachingStrategy-ref="Caching_AMS" doc:name="Cache">
+        <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'all-time':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
+<!--         <ee:cache cachingStrategy-ref="Caching_AMS" doc:name="Cache"> -->
             <choice doc:name="Last-day, last-week, last-month, last-year or all-time?">
             	<when expression="#[flowVars.granularity.equals('all-time')]">
                     <logger message="all-time = no start and end" level="INFO" doc:name="all-time = no start and end"/>
-                    <flow-ref name="db:/report/ams" doc:name="db:/report/ams"/>
+                    <flow-ref name="db:/report/ams-registered-all-time" doc:name="db:/report/ams-registered-all-time"/>
                 </when>
                 <when expression="#[flowVars.granularity.equals('last-year')]">
                     <logger message="1 year" level="INFO" doc:name="1 year = last 12 months"/>
-                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusYears(-1).toString()]" doc:name="Set start (now() - 1 year)"/>
-                    <flow-ref name="db:/report/ams-created" doc:name="db:/report/ams-created"/>
+                    <flow-ref name="db:/report/ams-registered-last-year" doc:name="db:/report/ams-registered-last-year"/>
                 </when>
                 <when expression="#[flowVars.granularity.equals('last-month')]">
                     <logger message="1 month" level="INFO" doc:name="1 month = last 30 days"/>
-                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusMonths(-1).toString()]" doc:name="Set start (now() - 1 month)"/>
-                    <flow-ref name="db:/report/ams-created" doc:name="db:/report/ams-created"/>
+                    <flow-ref name="db:/report/ams-registered-last-month" doc:name="db:/report/ams-registered-last-month"/>
                 </when>
                 <when expression="#[flowVars.granularity.equals('last-week')]">
                     <logger message="1 week" level="INFO" doc:name="1 week = last 7 days"/>
                     <set-variable variableName="start" value="#[server.dateTime.getDate().plusWeeks(-1).toString()]" doc:name="Set start (now() - 1 week)"/>
-                    <flow-ref name="db:/report/ams-created" doc:name="db:/report/ams-created"/>
-                </when>
-                <when expression="#[flowVars.granularity.equals('last-day')]">
-                    <logger message="Live data" level="INFO" doc:name="Last day = 24 hours for every 1 hour"/>
-                    <set-variable variableName="start" value="#[server.dateTime.getDate().plusDays(-1).toString()]" doc:name="Set start (now() - 1 day)"/>
-                    <flow-ref name="db:/report/ams-created" doc:name="db:/report/ams-created"/>
+                    <flow-ref name="db:/report/ams-registered-last-week" doc:name="db:/report/ams-registered-last-week"/>
                 </when>
                 <otherwise>
-                    <logger message="Bad granularity, use last-year, last-month, last-week or last-day" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
+                    <logger message="Bad granularity, use al-time, last-year, last-month, last-week" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
                 </otherwise>
             </choice>
-        </ee:cache>
+<!--         </ee:cache> -->
         <dw:transform-message doc:name="Transform Message">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
@@ -109,16 +103,16 @@ lookup("create_response",
 	<flow name="get:/report/mam:api-config">
         <set-variable variableName="description" value="Get all archived assets for a content provider within a specific period from MAM" doc:name="Set description"/>
         <set-variable variableName="cp_ldap" value="#[message.inboundProperties.'http.query.params'.cp]" doc:name="Set cp_ldap (LDAP ID)"/>
-        <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'last-day':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
-        <choice doc:name="cp_ldap is empty?">
-            <when expression="#[flowVars.cp_ldap!=null &amp;&amp; flowVars.cp_ldap!='null']">
+        <set-variable variableName="granularity" value="#[message.inboundProperties.'http.query.params'.gran==null?'all-time':message.inboundProperties.'http.query.params'.gran]" doc:name="Set granularity (todo better error catching)"/>
+        <choice doc:name="cp_ldap is empty and not viaa?">
+            <when expression="#[flowVars.cp_ldap!=null &amp;&amp; flowVars.cp_ldap!='null'&amp;&amp;flowVars.cp_ldap!='OR-w66976m']">
                 <flow-ref name="ldap2mam" doc:name="ldap2mam"/>
             </when>
             <otherwise>
                 <set-variable variableName="cp_mam" value="#['%']" doc:name="Set cp_mam (default %)"/>
             </otherwise>
         </choice>
-        <ee:cache cachingStrategy-ref="Caching_MAM" doc:name="Cache">
+<!--         <ee:cache cachingStrategy-ref="Caching_MAM" doc:name="Cache"> -->
             <choice doc:name="Last-day, last-week, last-month, last-year or all-time?">
 	            <when expression="#[flowVars.granularity.equals('all-time')]">
 	                <logger message="all-time = no start" level="INFO" doc:name="all-time = no start and end"/>
@@ -148,7 +142,7 @@ lookup("create_response",
                     <logger message="Bad granularity, use live-data, 2-days, 1-month or 1-year" level="INFO" doc:name="Bad granularity, use live-data, 2-days, 1-month or 1-year"/>
                 </otherwise>
             </choice>
-        </ee:cache>
+<!--         </ee:cache> -->
         <dw:transform-message doc:name="Transform Message">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
@@ -191,8 +185,8 @@ lookup("create_response",
                 <set-variable variableName="cp_ldap" value="#[&quot;%&quot;]" doc:name="Set cp_ldap to %"/>
             </otherwise>
         </choice>
-        <enricher doc:name="Message Enricher" target="#[payload]">
-        	<ee:cache cachingStrategy-ref="Caching_global" doc:name="Cache">
+<!--         <enricher doc:name="Message Enricher" target="#[payload]"> -->
+<!--         	<ee:cache cachingStrategy-ref="Caching_global" doc:name="Cache"> -->
             <scatter-gather doc:name="Scatter-Gather">
                 <threading-profile poolExhaustedAction="RUN"/>
                 <processor-chain>
@@ -213,21 +207,78 @@ lookup("create_response",
                     <flow-ref name="db:/report/global/ams/digitized" doc:name="db:/report/global/ams/digitized"/>
                     <logger message="AMS digitised av done" level="INFO" doc:name="Logger"/>
                 </processor-chain>
-                <processor-chain>
-                    <expression-component doc:name="Sleep 60"><![CDATA[Thread.sleep(60);]]></expression-component>
-                    <logger message="Start AMS digitised paper" level="INFO" doc:name="Logger"/>
-                    <flow-ref name="db:/report/global/ams/digitized_paper" doc:name="db:/report/global/ams/digitized_paper"/>
-                    <logger message="AMS digitised paper done" level="INFO" doc:name="Logger"/>
-                </processor-chain>
-                <processor-chain>
-                    <expression-component doc:name="Sleep 80"><![CDATA[Thread.sleep(80);]]></expression-component>
-                    <logger message="Start AMS status" level="INFO" doc:name="Logger"/>
-                    <flow-ref name="db:/report/global/ams/status" doc:name="db:/report/global/ams/status"/>
-                    <logger message="AMS digitised paper done" level="INFO" doc:name="Logger"/>
-                </processor-chain>
             </scatter-gather>
-        </ee:cache>
-        </enricher>
+                <choice doc:name="When VIAA/admin, add specific projects that are not in AMS">
+                    <when expression="#[flowVars.cp_ldap!=null &amp;&amp; flowVars.cp_ldap!='null'&amp;&amp;flowVars.cp_ldap!='OR-w66976m'&amp;&amp;flowVars.cp_ldap!='OR-rf5kf25'&amp;&amp;flowVars.cp_ldap!='%']">
+                        <expression-component doc:name="Expression"><![CDATA[// do nothing]]></expression-component>
+                    </when>
+                    <otherwise>
+                        <expression-component doc:name="Add Golf 1 betacam SP/SX VRT count to registered and digitized (afgerond)"><![CDATA[payload[0][0].video_registered += 57023;
+payload[0][0].total_registered += 57023;
+payload[2][0].video_digitised_ok += 57023;
+payload[2][0].total_digitised_ok += 57023;]]></expression-component>
+                        <expression-component doc:name="Add Golf 2 CDR VRT count to registered and digitized (afgerond)"><![CDATA[payload[0][0].audio_registered += 14246;
+payload[0][0].total_registered += 14246;
+payload[2][0].audio_digitised_ok += 14246;
+payload[2][0].total_digitised_ok += 14246;]]></expression-component>
+                        <expression-component doc:name="Add Film VRT to registered and digitized (loopt nog!)"><![CDATA[payload[0][0].film_registered += 25697;
+payload[0][0].total_registered += 25697;
+payload[2][0].film_digitised_ok += 0;
+payload[2][0].total_digitised_ok += 0;]]></expression-component>
+                        <expression-component doc:name="Add VHS VRT (afgerond)"><![CDATA[payload[0][0].video_registered += 47046;
+payload[0][0].total_registered += 47046;
+payload[2][0].video_digitised_ok += 47046;
+payload[2][0].total_digitised_ok += 47046;]]></expression-component>
+                    </otherwise>
+                </choice>
+<!--         </ee:cache> -->
+<!--         </enricher> -->
+        <dw:transform-message doc:name="Set mam_per_type" metadata:id="61485828-332a-454d-b2d7-e517643c5df3">
+            <dw:input-payload doc:sample="sample_data/MyPojo.dwl"/>
+            <dw:set-variable variableName="mam_per_type"><![CDATA[%dw 1.0
+%output application/java
+---
+{(payload[1] map using (type = $.type) (
+    '$type': (
+        $ mapObject { ('$$':$) }
+    )
+))}]]></dw:set-variable>
+        </dw:transform-message>
+        <expression-component doc:name="Add bytes to film"><![CDATA[if (flowVars.mam_per_type.film != null) {
+if (flowVars.mam_per_type.film_dpx != null) {
+	flowVars.mam_per_type.film.archived_bytes_ok += flowVars.mam_per_type.film_dpx.archived_bytes_ok;
+	flowVars.mam_per_type.film.archived_bytes_nok +=  flowVars.mam_per_type.film_dpx.archived_bytes_nok;
+}
+
+if (flowVars.mam_per_type.film_wav != null) {
+	flowVars.mam_per_type.film.archived_bytes_ok += flowVars.mam_per_type.film_wav.archived_bytes_ok;
+	flowVars.mam_per_type.film.archived_bytes_nok +=  flowVars.mam_per_type.film_wav.archived_bytes_nok;
+}
+
+if (flowVars.mam_per_type.film_mezanine != null) {
+	flowVars.mam_per_type.film.archived_bytes_ok += flowVars.mam_per_type.film_mezanine.archived_bytes_ok;
+	flowVars.mam_per_type.film.archived_bytes_nok +=  flowVars.mam_per_type.film_mezanine.archived_bytes_nok;
+}
+}]]></expression-component>
+        <expression-component doc:name="Add bytes to newspaper"><![CDATA[if (flowVars.mam_per_type.newspaper != null) {
+	if (flowVars.mam_per_type.newspaperpage != null) {
+		flowVars.mam_per_type.newspaper.archived_bytes_ok += flowVars.mam_per_type.newspaperpage.archived_bytes_ok;
+		flowVars.mam_per_type.newspaper.archived_bytes_nok +=  flowVars.mam_per_type.newspaperpage.archived_bytes_nok;
+	}
+}]]></expression-component>
+        <expression-component doc:name="Add bytes to audio (for shellac disks)"><![CDATA[if (flowVars.mam_per_type.audio != null) {
+	if (flowVars.mam_per_type.audio_plaat != null) {
+		flowVars.mam_per_type.audio.archived_bytes_ok += flowVars.mam_per_type.audio_plaat.archived_bytes_ok;
+		flowVars.mam_per_type.audio.archived_bytes_nok +=  flowVars.mam_per_type.audio_plaat.archived_bytes_nok;
+	}
+}]]></expression-component>
+        <expression-component doc:name="Remove film_dpx, film_wav, film_mezanine, newspaperpage, metadataonly, set, audio_plaat"><![CDATA[flowVars.mam_per_type.remove('film_dpx');
+flowVars.mam_per_type.remove('film_wav');
+flowVars.mam_per_type.remove('film_mezanine');
+flowVars.mam_per_type.remove('newspaperpage');
+flowVars.mam_per_type.remove('metadataonly');
+flowVars.mam_per_type.remove('set');
+flowVars.mam_per_type.remove('audio_plaat');]]></expression-component>
                 <expression-component doc:name="Add AMS and MAM as source"><![CDATA[if (flowVars.sources == null) {
 	flowVars.sources = new java.util.ArrayList();
 }
@@ -239,7 +290,9 @@ if (!flowVars.sources.contains("AMS")) {
 if (!flowVars.sources.contains("MAM")) {
 	flowVars.sources.add("MAM");
 }]]></expression-component>
-        <dw:transform-message doc:name="Build nice JSON object">
+        <dw:transform-message doc:name="Build nice JSON object" metadata:id="58215c86-7375-4c66-991a-a2c0c303fc28">
+            <dw:input-payload doc:sample="sample_data/map.dwl"/>
+            <dw:input-variable doc:sample="sample_data/string.dwl" mimeType="application/java" variableName="mam_per_type"/>
             <dw:set-payload><![CDATA[%dw 1.0
 %function zero(n) n when n!=null otherwise 0
 %output application/json
@@ -253,9 +306,34 @@ lookup("create_response",
 		"paper": zero(payload[0][0].paper_registered),
 		"total": zero(payload[0][0].total_registered)
 	},
-	"archived": { (payload[1] map (
+	"digitised": {
+		"video": {
+			"ok": zero(payload[2][0].video_digitised_ok),
+			"nok": zero(payload[2][0].video_digitised_nok),
+			"registered_and_not_digitised": zero(payload[2][0].video_registered_and_not_digitised)
+		},
+		"audio": {
+			"ok": zero(payload[2][0].audio_digitised_ok),
+			"nok": zero(payload[2][0].audio_digitised_nok),
+			"registered_and_not_digitised": zero(payload[2][0].audio_registered_and_not_digitised)
+		},
+		"film": {
+			"ok": zero(payload[2][0].film_digitised_ok),
+			"nok": zero(payload[2][0].film_digitised_nok),
+			"registered_and_not_digitised": zero(payload[2][0].film_registered_and_not_digitised)
+		},
+		"paper": {
+			"ok": zero(payload[2][0].paper_digitised_ok),
+			"nok": zero(payload[2][0].paper_digitised_nok)
+		},
+		"total": {
+			"ok": zero(payload[2][0].video_digitised_ok) + zero(payload[2][0].audio_digitised_ok) + zero(payload[2][0].film_digitised_ok) + zero(payload[2][0].paper_digitised_ok),
+			"nok": zero(payload[2][0].video_digitised_nok) + zero(payload[2][0].audio_digitised_nok) + zero(payload[2][0].film_digitised_nok)
+		}
+	},
+	"archived": { (flowVars.mam_per_type map (
 			{
-				($.mime_type): {
+				($.type): {
 					"amount": {
 						"ok": zero($.archived_amount_ok),
 						"nok": zero($.archived_amount_nok)
@@ -265,7 +343,7 @@ lookup("create_response",
 						"nok": zero($.archived_bytes_nok)
 					}
 				}
-			} when $.mime_type != null 
+			} when $.type != null 
 			otherwise {
 				"unknown": {
 					"amount": {
@@ -279,32 +357,11 @@ lookup("create_response",
 				}
 			} 
 			))
-	},
-	"digitised": {
-		"video": {
-			"ok": zero(payload[2][0].video_digitised_ok),
-			"nok": zero(payload[2][0].video_digitised_nok)
-		},
-		"audio": {
-			"ok": zero(payload[2][0].audio_digitised_ok),
-			"nok": zero(payload[2][0].audio_digitised_nok)
-		},
-		"film": {
-			"ok": zero(payload[2][0].film_digitised_ok),
-			"nok": zero(payload[2][0].film_digitised_nok)
-		},
-		"paper": {
-			"ok": zero(payload[3][0].paper_digitised_ok),
-			"nok": zero(payload[3][0].paper_digitised_nok)
-		},
-		"total": {
-			"ok": zero(payload[2][0].video_digitised_ok) + zero(payload[2][0].audio_digitised_ok) + zero(payload[2][0].film_digitised_ok) + zero(payload[3][0].paper_digitised_ok),
-			"nok": zero(payload[2][0].video_digitised_nok) + zero(payload[2][0].audio_digitised_nok) + zero(payload[2][0].film_digitised_nok) + zero(payload[3][0].paper_digitised_nok)
-		}
-	}	
+	}
 }
 )]]></dw:set-payload>
         </dw:transform-message>
     </flow>
 	
 </mule>
+ 

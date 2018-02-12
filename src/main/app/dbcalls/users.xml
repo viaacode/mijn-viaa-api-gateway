@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:db="http://www.mulesoft.org/schema/mule/db"
 	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
 http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
 http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
-http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
 
 <flow name="db:/users/count">
         <expression-component doc:name="Add AvO as source"><![CDATA[if (flowVars.sources == null) {
@@ -43,6 +44,47 @@ JOIN users_roles ur ON ur.uid = u.uid
 JOIN role r ON r.rid = ur.rid
 WHERE FROM_UNIXTIME(u.access)>= #[flowVars.from]
 AND FROM_UNIXTIME(u.access)<= #[flowVars.until]
+AND u.status = 1
+GROUP BY ur.rid
+ORDER BY ur.rid;]]></db:parameterized-query>
+        </db:select>
+    </flow>
+    
+    <flow name="db:/users/count/engaged">
+        <expression-component doc:name="Add AvO as source"><![CDATA[if (flowVars.sources == null) {
+	flowVars.sources = new java.util.ArrayList();
+}
+
+if (!flowVars.sources.contains("AvO")) {
+	flowVars.sources.add("AvO");
+}]]></expression-component>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-variable variableName="startacademiejaar"><![CDATA[%dw 1.0
+%output application/java
+---
+((now as :string { format: 'yyyy' }) - 1) ++ '-09-01']]></dw:set-variable>
+            <dw:set-variable variableName="eindacademiejaar"><![CDATA[%dw 1.0
+%output application/java
+---
+(now as :string { format: 'yyyy-08-31' })]]></dw:set-variable>
+            <dw:set-variable variableName="vorigjaar"><![CDATA[%dw 1.0
+%output application/java
+---
+((now as :string { format: 'yyyy' }) - 1) ++ '-' ++ (now as :string { format: 'MM-dd' })]]></dw:set-variable>
+        </dw:transform-message>
+        <db:select config-ref="AvO" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT ur.rid, r.name, COUNT(DISTINCT (u.uid)) as counter
+FROM users u
+JOIN users_roles ur ON ur.uid = u.uid
+JOIN role r ON r.rid = ur.rid
+WHERE
+u.status = 1 AND
+((
+	FROM_UNIXTIME(u.created) >= #[flowVars.startacademiejaar]
+	AND FROM_UNIXTIME(u.created) <= #[flowVars.eindacademiejaar]
+)
+AND u.access > 0)
+OR FROM_UNIXTIME(u.access) >= #[flowVars.vorigjaar]
 GROUP BY ur.rid
 ORDER BY ur.rid;]]></db:parameterized-query>
         </db:select>

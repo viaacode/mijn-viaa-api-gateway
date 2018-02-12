@@ -37,6 +37,7 @@ local.properties
 .cproject
 # PDT-specific
 .buildpath
+.classpath
 # --------------- #
 # Studio-specific #
 # --------------- #
