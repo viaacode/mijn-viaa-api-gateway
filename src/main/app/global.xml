@@ -59,9 +59,6 @@ http://www.mulesoft.org/schema/mule/oauth2 http://www.mulesoft.org/schema/mule/o
         </db:connection-properties>
         <reconnect-forever/>
     </db:mysql-config>
-   	<db:generic-config name="Mediahaven_monitoring" url="jdbc:postgresql://${mam.db.host}:${mam.db.port}/${mam.db.database}?password=${mam.db.password}&amp;user=${mam.db.username}" driverClassName="org.postgresql.Driver" doc:name="MH monitoring DB"> 
-        <reconnect-forever></reconnect-forever>  
-    </db:generic-config>
     <db:generic-config name="Exports_database" url="jdbc:postgresql://${export.db.host}:${export.db.port}/${export.db.database}?password=${export.db.password}&amp;user=${export.db.username}" driverClassName="org.postgresql.Driver" doc:name="MH monitoring DB"> 
         <reconnect-forever></reconnect-forever>  
     </db:generic-config>

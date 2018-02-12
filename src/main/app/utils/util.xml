@@ -259,40 +259,6 @@ if (!flowVars.sources.contains("AMS")) {
         </db:select>
     </flow>
     
-    <flow name="ref:mh-call">
-        <expression-component doc:name="Add MAM as source"><![CDATA[if (flowVars.sources == null) {
-	flowVars.sources = new java.util.ArrayList();
-}
-
-if (!flowVars.sources.contains("MAM")) {
-	flowVars.sources.add("MAM");
-}]]></expression-component>
-        <db:select config-ref="Mediahaven_monitoring" doc:name="Database">
-            <db:dynamic-query><![CDATA[#[payload]]]></db:dynamic-query>
-        </db:select>
-        <choice doc:name="Choice">
-            <when expression="#[payload.size() &gt; 0]">
-                <logger message="Got #[payload.size()] results from MH" level="INFO" doc:name="Logger"/>
-            </when>
-            <otherwise>
-                <flow-ref name="throw404" doc:name="throw404"/>
-            </otherwise>
-        </choice>
-    </flow>
-    
-    <flow name="ref:mh-collection-call">
-        <expression-component doc:name="Add MAM as source"><![CDATA[if (flowVars.sources == null) {
-	flowVars.sources = new java.util.ArrayList();
-}
-
-if (!flowVars.sources.contains("MAM")) {
-	flowVars.sources.add("MAM");
-}]]></expression-component>
-        <db:select config-ref="Mediahaven_monitoring" doc:name="Database">
-            <db:dynamic-query><![CDATA[#[payload]]]></db:dynamic-query>
-        </db:select>
-    </flow>
-    
     <flow name="create_response">
         <logger message="Creating response" level="INFO" doc:name="Logger"/>
         <dw:transform-message doc:name="Transform Message">
