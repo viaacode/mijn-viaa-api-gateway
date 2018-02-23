@@ -20,7 +20,7 @@ http://www.mulesoft.org/schema/mule/cors http://www.mulesoft.org/schema/mule/cor
 	    </cors:origins>
 	</cors:config>
     <flow name="api-main">
-        <http:listener config-ref="api-httpListenerConfig" path="/api/*" doc:name="HTTP"/>
+        <http:listener config-ref="api-httpListenerConfig" path="/api/*" doc:name="HTTP" responseStreamingMode="NEVER"/>
         <cors:validate config-ref="Cors_Configuration" publicResource="false" acceptsCredentials="false" doc:name="CORS Validate" />
         <set-variable variableName="path" value="#[message.inboundProperties.'http.request.path']" doc:name="Set path"/>
         <flow-ref name="ref:getMilli" doc:name="ref:getMilli"/>
